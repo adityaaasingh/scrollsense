@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ScrollSense</title>
+    <link rel="stylesheet" href="sidepanel.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <span class="logo">ScrollSense</span>
+    </header>
+
+    <main class="app-main">
+      <!-- Idle / waiting state -->
+      <div id="state-waiting" class="state-view active">
+        <div class="idle-icon">&#9654;</div>
+        <p class="idle-message">Waiting for YouTube video&hellip;</p>
+        <p class="idle-hint">Navigate to a YouTube watch page to get started.</p>
+      </div>
+
+      <!-- Video detected — pending classification -->
+      <div id="state-detected" class="state-view">
+        <div class="video-meta">
+          <p class="label">Title</p>
+          <p id="meta-title" class="value">—</p>
+          <p class="label">Channel</p>
+          <p id="meta-channel" class="value">—</p>
+          <p class="label">URL</p>
+          <p id="meta-url" class="value url-value">—</p>
+        </div>
+        <div class="loading-bar">
+          <div class="loading-bar-inner"></div>
+        </div>
+        <p class="status-text">Classifying&hellip;</p>
+      </div>
+
+      <!-- Classification result -->
+      <div id="state-result" class="state-view">
+        <div class="video-meta">
+          <p class="label">Title</p>
+          <p id="result-title" class="value">—</p>
+          <p class="label">Channel</p>
+          <p id="result-channel" class="value">—</p>
+        </div>
+        <div class="result-card">
+          <p class="label">Classification</p>
+          <p id="result-label" class="result-label">—</p>
+          <p class="label">Confidence</p>
+          <p id="result-confidence" class="result-confidence">—</p>
+          <p class="label">Summary</p>
+          <p id="result-summary" class="result-summary">—</p>
+        </div>
+      </div>
+
+      <!-- Error state -->
+      <div id="state-error" class="state-view">
+        <p class="error-icon">&#9888;</p>
+        <p id="error-message" class="error-message">Something went wrong.</p>
+        <button id="btn-retry" class="btn-retry">Retry</button>
+      </div>
+    </main>
+
+    <script src="sidepanel.js" type="module"></script>
+  </body>
+</html>
