@@ -1,31 +1,90 @@
-// utils/storage.js — thin wrapper around chrome.storage.local
-// Keeps storage keys in one place so they're easy to audit and rename.
+// utils/storage.js — ScrollSense chrome.storage.local wrapper
+// All storage keys live here. Background and panel both import from this file.
 
 const KEYS = {
-  LAST_RESULT: 'scrollsense_last_result',
+  CURRENT_CONTENT:    'scrollsense_current_content',
+  CURRENT_ANALYSIS:   'scrollsense_current_analysis',  // latest classification result
+  SESSION_HISTORY:    'scrollsense_session_history',
+  LAST_RESULT:        'scrollsense_last_result',        // alias kept for panel restore
 };
 
+const SESSION_HISTORY_LIMIT = 50;
+
+// ─── Current content ─────────────────────────────────────────────────────────
+
+/** Overwrite the current detected content item. */
+export function saveCurrentContent(payload) {
+  return chrome.storage.local.set({ [KEYS.CURRENT_CONTENT]: payload });
+}
+
+/** Read the current detected content item. */
+export async function getCurrentContent() {
+  const s = await chrome.storage.local.get(KEYS.CURRENT_CONTENT);
+  return s[KEYS.CURRENT_CONTENT] ?? null;
+}
+
+// ─── Current analysis ─────────────────────────────────────────────────────────
+
+/** Overwrite the current classification result. */
+export function saveCurrentAnalysis(analysis) {
+  return chrome.storage.local.set({ [KEYS.CURRENT_ANALYSIS]: analysis });
+}
+
+/** Read the current classification result. */
+export async function getCurrentAnalysis() {
+  const s = await chrome.storage.local.get(KEYS.CURRENT_ANALYSIS);
+  return s[KEYS.CURRENT_ANALYSIS] ?? null;
+}
+
+// ─── Session history ──────────────────────────────────────────────────────────
+
 /**
- * Persist the most recent classification result so the panel can restore state
- * when it is closed and reopened.
- * @param {{ payload: object, result: object }} data
+ * Prepend a payload to session history.
+ * Deduplicates by URL: if the URL already exists in history it is moved to the
+ * front rather than duplicated. Trims to SESSION_HISTORY_LIMIT.
+ * @param {object} payload — normalized ScrollSense payload
  */
+export async function appendSessionHistory(payload) {
+  const s = await chrome.storage.local.get(KEYS.SESSION_HISTORY);
+  let history = s[KEYS.SESSION_HISTORY] ?? [];
+
+  // Remove any existing entry for the same URL so we don't get duplicates.
+  history = history.filter((item) => item.url !== payload.url);
+
+  // Newest first.
+  history.unshift(payload);
+
+  // Keep bounded.
+  if (history.length > SESSION_HISTORY_LIMIT) {
+    history = history.slice(0, SESSION_HISTORY_LIMIT);
+  }
+
+  return chrome.storage.local.set({ [KEYS.SESSION_HISTORY]: history });
+}
+
+/** Read the full session history array. */
+export async function getSessionHistory() {
+  const s = await chrome.storage.local.get(KEYS.SESSION_HISTORY);
+  return s[KEYS.SESSION_HISTORY] ?? [];
+}
+
+/** Wipe session history (e.g. user-triggered clear). */
+export function clearSessionHistory() {
+  return chrome.storage.local.remove(KEYS.SESSION_HISTORY);
+}
+
+// ─── Classification result cache ──────────────────────────────────────────────
+
+/** Persist the most recent Gemini classification so the panel can restore on reopen. */
 export function saveLastResult(data) {
   return chrome.storage.local.set({ [KEYS.LAST_RESULT]: data });
 }
 
-/**
- * Retrieve the last saved classification result.
- * @returns {Promise<{ payload: object, result: object } | null>}
- */
 export async function getLastResult() {
-  const stored = await chrome.storage.local.get(KEYS.LAST_RESULT);
-  return stored[KEYS.LAST_RESULT] ?? null;
+  const s = await chrome.storage.local.get(KEYS.LAST_RESULT);
+  return s[KEYS.LAST_RESULT] ?? null;
 }
 
-/**
- * Clear the stored result (e.g. when the user navigates away or requests a reset).
- */
 export function clearLastResult() {
   return chrome.storage.local.remove(KEYS.LAST_RESULT);
 }

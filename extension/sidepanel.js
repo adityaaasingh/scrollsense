@@ -1,95 +1,107 @@
 // sidepanel.js — ScrollSense side panel controller
-// Listens for messages from the background worker and updates the UI accordingly.
 
 import { onPanelMessage } from './utils/messaging.js';
-import { getLastResult, saveLastResult, clearLastResult } from './utils/storage.js';
+import { getCurrentContent, getCurrentAnalysis, saveLastResult } from './utils/storage.js';
 
-// ---------- State helpers ----------
+// ─── State helpers ────────────────────────────────────────────────────────────
 
 const VIEWS = ['waiting', 'detected', 'result', 'error'];
 
 function showState(name) {
   VIEWS.forEach((v) => {
-    const el = document.getElementById(`state-${v}`);
-    if (el) el.classList.toggle('active', v === name);
+    document.getElementById(`state-${v}`)?.classList.toggle('active', v === name);
   });
 }
 
-// ---------- UI update helpers ----------
+// ─── UI helpers ───────────────────────────────────────────────────────────────
 
 function setText(id, value) {
   const el = document.getElementById(id);
   if (el) el.textContent = value || '—';
 }
 
-function renderDetected(payload) {
-  setText('meta-title', payload.title);
-  setText('meta-channel', payload.channel);
-  setText('meta-url', payload.url);
+// Show title/creator/url and the animated loading bar (state-detected).
+function renderLoading(payload) {
+  setText('meta-title',   payload.title);
+  setText('meta-channel', payload.creator);   // schema uses 'creator'
+  setText('meta-url',     payload.url);
   showState('detected');
 }
 
-function renderResult(payload, result) {
-  setText('result-title', payload.title);
-  setText('result-channel', payload.channel);
-  setText('result-label', result.label);
-  setText('result-confidence', result.confidence ? `${Math.round(result.confidence * 100)}%` : '—');
-  setText('result-summary', result.summary);
+// Show full classification result (state-result).
+function renderResult(payload, analysis) {
+  setText('result-title',      payload.title);
+  setText('result-channel',    payload.creator);
+  setText('result-label',      analysis.category);
+  setText('result-confidence', analysis.confidence != null
+    ? `${Math.round(analysis.confidence * 100)}%` : '—');
+  setText('result-summary',    analysis.reason);
   showState('result');
 }
 
-function renderError(message) {
-  setText('error-message', message || 'Something went wrong.');
+function renderError(payload, message) {
+  // Keep content visible in the error state if we have it.
+  if (payload) {
+    setText('meta-title',   payload.title);
+    setText('meta-channel', payload.creator);
+    setText('meta-url',     payload.url);
+  }
+  setText('error-message', message || 'Classification failed.');
   showState('error');
 }
 
-// ---------- Message handling ----------
+// ─── Message handling ─────────────────────────────────────────────────────────
 
 let currentPayload = null;
 
 function handleMessage(message) {
-  if (message.type === 'VIDEO_DETECTED') {
-    currentPayload = message.payload;
-    renderDetected(currentPayload);
-    // In the next step, this is where we'll call the backend classify API.
-    // For now just stay in "detected / classifying" state.
+  const { type, payload, analysis, error } = message;
+
+  if (type === 'ANALYSIS_LOADING') {
+    currentPayload = payload;
+    renderLoading(payload);
   }
 
-  if (message.type === 'CLASSIFICATION_RESULT') {
-    const { payload, result } = message;
-    saveLastResult({ payload, result });
-    renderResult(payload, result);
+  if (type === 'ANALYSIS_RESULT') {
+    currentPayload = payload;
+    saveLastResult({ payload, analysis }).catch(console.error);
+    renderResult(payload, analysis);
   }
 
-  if (message.type === 'CLASSIFICATION_ERROR') {
-    renderError(message.error);
+  if (type === 'ANALYSIS_ERROR') {
+    currentPayload = payload ?? currentPayload;
+    renderError(currentPayload, error);
   }
 }
 
-// ---------- Retry button ----------
+// ─── Retry button ─────────────────────────────────────────────────────────────
 
 document.getElementById('btn-retry')?.addEventListener('click', () => {
   if (currentPayload) {
-    renderDetected(currentPayload);
-    // Re-trigger classification (wired up in the next step).
-    chrome.runtime.sendMessage({ type: 'RETRY_CLASSIFICATION', payload: currentPayload });
+    renderLoading(currentPayload);
+    chrome.runtime.sendMessage({ type: 'CONTENT_DETECTED', payload: currentPayload });
   } else {
     showState('waiting');
   }
 });
 
-// ---------- Bootstrap ----------
+// ─── Bootstrap ────────────────────────────────────────────────────────────────
 
 async function init() {
-  // Restore the last known result so the panel isn't blank on reopen.
-  const cached = await getLastResult();
-  if (cached?.payload && cached?.result) {
-    renderResult(cached.payload, cached.result);
+  // Restore state from storage so the panel isn't blank on reopen.
+  const [content, analysis] = await Promise.all([
+    getCurrentContent(),
+    getCurrentAnalysis(),
+  ]);
+
+  if (content && analysis && !analysis._fallback) {
+    renderResult(content, analysis);
+  } else if (content) {
+    renderLoading(content);   // content known but analysis pending/failed
   } else {
     showState('waiting');
   }
 
-  // Subscribe to runtime messages relayed from background.js.
   onPanelMessage(handleMessage);
 }
 
