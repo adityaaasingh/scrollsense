@@ -1,6 +1,9 @@
 import logging
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import get_settings
 from app.routers import analyze
@@ -32,3 +35,19 @@ app.include_router(analyze.router)
 @app.get("/health", tags=["meta"])
 def health():
     return {"status": "ok"}
+
+
+# ── Dashboard (static) ────────────────────────────────────────────────────────
+# Served at http://localhost:8000/dashboard/
+# dashboard/ lives at repo root: scrollsense/dashboard/
+# main.py lives at:              scrollsense/backend/app/main.py
+# Relative path:                 ../../dashboard
+
+_DASHBOARD_DIR = Path(__file__).resolve().parent.parent.parent / "dashboard"
+
+if _DASHBOARD_DIR.is_dir():
+    app.mount(
+        "/dashboard",
+        StaticFiles(directory=_DASHBOARD_DIR, html=True),
+        name="dashboard",
+    )
