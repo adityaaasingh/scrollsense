@@ -364,6 +364,14 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
 // ── Retry ─────────────────────────────────────────────────────────────────────
 
+document.getElementById('btn-dashboard-mock')?.addEventListener('click', () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL('dashboard.html?mode=mock') });
+});
+
+document.getElementById('btn-dashboard-live')?.addEventListener('click', () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL('dashboard.html?mode=real') });
+});
+
 document.getElementById('btn-retry')?.addEventListener('click', () => {
   if (currentPayload) {
     renderLoading(currentPayload);

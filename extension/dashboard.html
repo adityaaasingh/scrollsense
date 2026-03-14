@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ScrollSense — Your Feed, Today</title>
+  <link rel="stylesheet" href="dashboard.css" />
+</head>
+<body>
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="header-left">
+        <span class="logo">ScrollSense</span>
+        <span class="header-sep">·</span>
+        <span class="header-subtitle">Personal Dashboard</span>
+      </div>
+      <nav class="header-nav">
+        <a class="nav-link nav-link--active" href="#">Overview</a>
+        <a class="nav-link nav-link--soon" href="#" tabindex="-1">History</a>
+        <a class="nav-link nav-link--soon" href="#" tabindex="-1">Settings</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="app-main">
+
+    <!-- ── User identity hero ────────────────────────────────────────────── -->
+    <div id="user-hero" class="user-hero">
+      <!-- Populated by dashboard.js -->
+    </div>
+
+    <!-- ── KPI strip ────────────────────────────────────────────────────── -->
+    <section class="kpi-strip" id="kpi-strip">
+      <!-- Populated by dashboard.js -->
+    </section>
+
+    <!-- ── Narrative story banner ───────────────────────────────────────── -->
+    <div id="story-banner" class="story-banner">
+      <!-- Populated by dashboard.js -->
+    </div>
+
+    <!-- ── Session analytics ────────────────────────────────────────────── -->
+    <section class="analytics-section">
+      <div class="section-header">
+        <h2 class="section-title">Session Analytics</h2>
+        <span class="section-meta" id="last-updated"></span>
+      </div>
+      <div class="analytics-grid" id="analytics-grid">
+        <!-- Populated by dashboard.js -->
+      </div>
+    </section>
+
+    <!-- ── Feed diagnosis + drift alert ─────────────────────────────────── -->
+    <section id="diagnosis-section">
+      <!-- Populated by dashboard.js -->
+    </section>
+
+    <!-- ── Content breakdown + recent (two-col) ─────────────────────────── -->
+    <div class="content-row">
+
+      <section class="breakdown-section">
+        <div class="section-header">
+          <h2 class="section-title">Content Breakdown</h2>
+        </div>
+        <div class="breakdown-card" id="breakdown-bars">
+          <!-- Populated by dashboard.js -->
+        </div>
+      </section>
+
+      <section class="recent-section">
+        <div class="section-header">
+          <h2 class="section-title">Recent</h2>
+          <span class="section-meta" id="recent-stat"></span>
+        </div>
+        <div class="recent-card" id="recent-feed">
+          <!-- Populated by dashboard.js -->
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ── Recommendations ──────────────────────────────────────────────── -->
+    <section id="recs-section">
+      <!-- Populated by dashboard.js -->
+    </section>
+
+  </main>
+
+  <script src="dashboard.js" type="module"></script>
+</body>
+</html>

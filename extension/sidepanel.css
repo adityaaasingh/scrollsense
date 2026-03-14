@@ -34,7 +34,7 @@ html, body {
 .app-header {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   padding: 13px 14px;
   border-bottom: 1px solid var(--border);
   position: sticky;
@@ -42,6 +42,28 @@ html, body {
   background: var(--bg);
   z-index: 10;
 }
+
+.header-btns {
+  display: flex;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.dashboard-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  padding: 3px 7px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.dashboard-btn--mock { color: var(--muted); }
+.dashboard-btn--mock:hover { color: var(--text); border-color: var(--muted); }
+
+.dashboard-btn--live { color: #4ade80; border-color: color-mix(in srgb, #4ade80 30%, transparent); }
+.dashboard-btn--live:hover { color: #86efac; border-color: #4ade80; }
 
 .logo-group {
   display: flex;
