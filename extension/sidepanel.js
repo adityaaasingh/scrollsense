@@ -1,6 +1,4 @@
-// sidepanel.js — ScrollSense side panel controller
-// Generic: uses normalized payload schema (platform, content_type, title, creator, url).
-// Extend by adding new platform cases to platformLabel() and categoryColor().
+// sidepanel.js — WatchTrace side panel controller
 
 import { onPanelMessage } from './utils/messaging.js';
 import {
@@ -93,9 +91,18 @@ function sessionLabelText(label) {
   return emoji ? `${emoji} ${label}` : label;
 }
 
-// ── Platform label ────────────────────────────────────────────────────────────
+// ── Platform label & emoji ────────────────────────────────────────────────────
+const PLATFORM_LABELS = { youtube: 'YouTube', reddit: 'Reddit', x: 'X', news: 'News' };
+const PLATFORM_EMOJI  = { youtube: '▶', reddit: '👽', x: '✕', news: '📰' };
+
 function platformLabel(platform) {
-  return { youtube: 'YouTube', reddit: 'Reddit', x: 'X', news: 'News' }[platform] ?? platform ?? '';
+  return PLATFORM_LABELS[platform] ?? platform ?? '';
+}
+
+function platformBadgeText(platform) {
+  const label = PLATFORM_LABELS[platform] ?? platform ?? '';
+  const emoji = PLATFORM_EMOJI[platform];
+  return label ? (emoji ? `${emoji} ${label}` : label) : '';
 }
 
 // ── State machine ─────────────────────────────────────────────────────────────
@@ -131,12 +138,12 @@ function _esc(str) {
 
 // ── Render functions ──────────────────────────────────────────────────────────
 
-function renderHeaderBadge(platform) {
-  const badge = document.getElementById('header-badge');
+function renderPlatformBadge(platform) {
+  const badge = document.getElementById('result-platform-badge');
   if (!badge) return;
-  const label = platformLabel(platform);
-  if (label) {
-    badge.textContent = label;
+  const text = platformBadgeText(platform);
+  if (text) {
+    badge.textContent = text;
     badge.hidden = false;
   } else {
     badge.hidden = true;
@@ -144,7 +151,6 @@ function renderHeaderBadge(platform) {
 }
 
 function renderLoading(payload) {
-  renderHeaderBadge(payload.platform);
   setText('loading-title',   payload.title);
   setText('loading-creator', payload.creator);
   setText('loading-url',     payload.url);
@@ -152,7 +158,7 @@ function renderLoading(payload) {
 }
 
 function renderResult(payload, analysis) {
-  renderHeaderBadge(payload.platform);
+  renderPlatformBadge(payload.platform);
 
   // Metadata
   setText('result-title',   payload.title);
@@ -171,14 +177,11 @@ function renderResult(payload, analysis) {
     catEl.style.setProperty('--cat-color', categoryColor(analysis.category));
   }
 
-  // Confidence pill
+  // Confidence as plain percentage text
   const conf = analysis.confidence != null
     ? `${Math.round(analysis.confidence * 100)}%`
     : '—';
   setText('result-confidence', conf);
-
-  // Reason
-  setText('result-reason', analysis.reason);
 
   // Score bars
   const scores = analysis.scores ?? {};
@@ -204,7 +207,33 @@ function renderError(payload, message) {
 
 // ── Session insights ──────────────────────────────────────────────────────────
 
-function renderSessionInsights(insights) {
+function computeSessionStats(history) {
+  const items = history ?? [];
+  const categories = new Set(items.map(i => i._category).filter(Boolean));
+  const creators   = new Set(items.map(i => i.creator).filter(Boolean));
+  const platforms  = new Set(items.map(i => i.platform).filter(Boolean));
+
+  // Category breakdown: [{cat, frac}] sorted by frequency, top 3
+  const counts = {};
+  items.forEach(i => {
+    const cat = i._category;
+    if (cat) counts[cat] = (counts[cat] || 0) + 1;
+  });
+  const total = Object.values(counts).reduce((s, n) => s + n, 0) || 1;
+  const breakdown = Object.entries(counts)
+    .map(([cat, n]) => ({ cat, frac: n / total }))
+    .sort((a, b) => b.frac - a.frac)
+    .slice(0, 3);
+
+  return {
+    uniqueCategories: categories.size,
+    uniqueCreators:   creators.size,
+    uniquePlatforms:  platforms.size,
+    breakdown,
+  };
+}
+
+function renderSessionInsights(insights, history) {
   const section = document.getElementById('session-section');
   if (!section) return;
 
@@ -223,49 +252,49 @@ function renderSessionInsights(insights) {
     labelEl.style.setProperty('--session-color', color);
   }
 
-  // Diversity pill: show diversity % from metrics if available
+  // Diversity: plain text
   const divEl = document.getElementById('session-diversity');
   if (divEl) {
     const div = insights.metrics?.diversity_score;
-    divEl.textContent = div != null ? `${Math.round(div * 100)}% diverse` : '';
-    divEl.hidden = div == null;
+    if (div != null) {
+      divEl.textContent = `${Math.round(div * 100)}% diverse`;
+      divEl.hidden = false;
+    } else {
+      divEl.hidden = true;
+    }
   }
 
-  // Summary
-  setText('session-summary', insights.summary);
+  // Category distribution bars
+  const barsEl = document.getElementById('session-bars');
+  if (barsEl) {
+    const stats = computeSessionStats(history);
+    barsEl.innerHTML = stats.breakdown.map(({ cat, frac }) => {
+      const pct = Math.round(frac * 100);
+      return `
+        <div class="score-row">
+          <span class="score-label">${_esc(cat)}</span>
+          <div class="score-track">
+            <div class="score-fill" style="width:${pct}%"></div>
+          </div>
+          <span class="score-val">${pct}%</span>
+        </div>`;
+    }).join('');
 
-  // Insights list (3 bullets)
-  const insightsList = document.getElementById('session-insights');
-  if (insightsList) {
-    insightsList.innerHTML = (insights.insights ?? [])
-      .map((text) => `<li class="session-insight">${_esc(text)}</li>`)
-      .join('');
-  }
-
-  // Recommendations
-  const recsEl = document.getElementById('session-recs');
-  if (recsEl) {
-    recsEl.innerHTML = (insights.recommendations ?? [])
-      .map((text) => `<p class="session-rec">${_esc(text)}</p>`)
-      .join('');
+    // Stats boxes
+    const el = (id) => document.getElementById(id);
+    el('stat-categories') && (el('stat-categories').textContent = stats.uniqueCategories);
+    el('stat-creators')   && (el('stat-creators').textContent   = stats.uniqueCreators);
+    el('stat-platforms')  && (el('stat-platforms').textContent  = stats.uniquePlatforms);
   }
 }
 
 // ── History ───────────────────────────────────────────────────────────────────
 
 function renderHistory(items) {
-  const section = document.getElementById('history-section');
-  const list    = document.getElementById('history-list');
-  if (!section || !list) return;
+  const list = document.getElementById('history-list');
+  if (!list) return;
 
-  // Show at most 8 items; hide section if empty.
   const recent = (items ?? []).slice(0, 8);
-  if (recent.length === 0) {
-    section.hidden = true;
-    return;
-  }
-
-  section.hidden = false;
   list.innerHTML = '';
 
   recent.forEach((item) => {
@@ -310,22 +339,21 @@ function handleMessage(message) {
 }
 
 // ── Live storage updates ──────────────────────────────────────────────────────
-// Watch for background writes so the panel stays in sync even when it was open
-// before the analysis finished (e.g. panel reopened mid-flight).
+
+let cachedHistory = [];
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return;
 
   if (changes[KEY_HISTORY]) {
-    renderHistory(changes[KEY_HISTORY].newValue ?? []);
+    cachedHistory = changes[KEY_HISTORY].newValue ?? [];
+    renderHistory(cachedHistory);
   }
 
   if (changes[KEY_INSIGHTS]) {
-    renderSessionInsights(changes[KEY_INSIGHTS].newValue ?? null);
+    renderSessionInsights(changes[KEY_INSIGHTS].newValue ?? null, cachedHistory);
   }
 
-  // If the panel is in loading state and analysis arrives via storage
-  // (race between broadcast and panel opening), update the result view.
   if (changes[KEY_ANALYSIS] && currentPayload) {
     const analysis = changes[KEY_ANALYSIS].newValue;
     if (analysis && !analysis._fallback) {
@@ -355,8 +383,9 @@ async function init() {
     getSessionInsights(),
   ]);
 
-  renderHistory(history);
-  renderSessionInsights(insights);   // no-op if null — section stays hidden
+  cachedHistory = history ?? [];
+  renderHistory(cachedHistory);
+  renderSessionInsights(insights, cachedHistory);
 
   if (content && analysis && !analysis._fallback) {
     currentPayload = content;

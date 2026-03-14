@@ -3,13 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ScrollSense</title>
+    <title>WatchTrace</title>
     <link rel="stylesheet" href="sidepanel.css" />
   </head>
   <body>
     <header class="app-header">
-      <span class="logo">ScrollSense</span>
-      <span id="header-badge" class="header-badge" hidden></span>
+      <div class="logo-group">
+        <svg class="logo-icon" viewBox="0 0 22 14" width="22" height="14" fill="currentColor" aria-hidden="true">
+          <rect x="0" y="0"    width="22" height="2.5" rx="1.25"/>
+          <rect x="0" y="5.75" width="14" height="2.5" rx="1.25"/>
+          <rect x="0" y="11.5" width="22" height="2.5" rx="1.25"/>
+        </svg>
+        <span class="logo">WATCHTRACE</span>
+      </div>
     </header>
 
     <main class="app-main">
@@ -22,7 +28,7 @@
             <div class="idle-dot">▶</div>
           </div>
           <p class="idle-message">Waiting for content</p>
-          <p class="idle-hint">Open a YouTube video and ScrollSense will classify it automatically.</p>
+          <p class="idle-hint">Open a YouTube video or Reddit post and WatchTrace will classify it automatically.</p>
         </div>
       </div>
 
@@ -43,6 +49,7 @@
       <div id="state-result" class="state-view">
 
         <div class="content-card">
+          <span id="result-platform-badge" class="platform-badge" hidden></span>
           <p class="card-title" id="result-title">—</p>
           <p class="card-sub"   id="result-creator">—</p>
           <a class="card-url"   id="result-url" href="#" target="_blank" rel="noopener">—</a>
@@ -52,36 +59,31 @@
           <!-- Category row -->
           <div class="analysis-top">
             <span class="category-badge" id="result-category">—</span>
-            <span class="confidence-pill" id="result-confidence">—</span>
+            <span class="confidence-text" id="result-confidence">—</span>
           </div>
-          <!-- Reason -->
-          <p class="analysis-reason" id="result-reason">—</p>
 
           <!-- Score bars -->
-          <div class="scores-section">
-            <div class="scores-label">Signal breakdown</div>
-            <div class="scores">
-              <div class="score-row">
-                <span class="score-label">Educational</span>
-                <div class="score-track">
-                  <div class="score-fill score-fill--edu" id="bar-educational"></div>
-                </div>
-                <span class="score-val" id="val-educational">0%</span>
+          <div class="scores">
+            <div class="score-row">
+              <span class="score-label">Educational</span>
+              <div class="score-track">
+                <div class="score-fill" id="bar-educational"></div>
               </div>
-              <div class="score-row">
-                <span class="score-label">Emotional</span>
-                <div class="score-track">
-                  <div class="score-fill score-fill--emo" id="bar-high_emotion"></div>
-                </div>
-                <span class="score-val" id="val-high_emotion">0%</span>
+              <span class="score-val" id="val-educational">0%</span>
+            </div>
+            <div class="score-row">
+              <span class="score-label">Emotional</span>
+              <div class="score-track">
+                <div class="score-fill" id="bar-high_emotion"></div>
               </div>
-              <div class="score-row">
-                <span class="score-label">Credib. Risk</span>
-                <div class="score-track">
-                  <div class="score-fill score-fill--risk" id="bar-credibility_risk"></div>
-                </div>
-                <span class="score-val" id="val-credibility_risk">0%</span>
+              <span class="score-val" id="val-high_emotion">0%</span>
+            </div>
+            <div class="score-row">
+              <span class="score-label">Credib. Risk</span>
+              <div class="score-track">
+                <div class="score-fill" id="bar-credibility_risk"></div>
               </div>
+              <span class="score-val" id="val-credibility_risk">0%</span>
             </div>
           </div>
         </div>
@@ -108,16 +110,30 @@
         <div class="session-card">
           <div class="session-label-row">
             <span class="session-label" id="session-label">—</span>
-            <span class="session-diversity" id="session-diversity"></span>
+            <span class="session-diversity" id="session-diversity" hidden></span>
           </div>
-          <p class="session-summary" id="session-summary">—</p>
-          <ul class="session-insights" id="session-insights"></ul>
-          <div class="session-recs" id="session-recs"></div>
+          <!-- Category distribution bars -->
+          <div class="session-bars" id="session-bars"></div>
+          <!-- Stats row -->
+          <div class="session-stats">
+            <div class="stat-box">
+              <p class="stat-label">Categories</p>
+              <p class="stat-val" id="stat-categories">—</p>
+            </div>
+            <div class="stat-box">
+              <p class="stat-label">Creators</p>
+              <p class="stat-val" id="stat-creators">—</p>
+            </div>
+            <div class="stat-box">
+              <p class="stat-label">Platforms</p>
+              <p class="stat-val" id="stat-platforms">—</p>
+            </div>
+          </div>
         </div>
       </section>
 
       <!-- ── Session history ────────────────────────────────────────────── -->
-      <section class="history-section" id="history-section" hidden>
+      <section class="history-section" id="history-section">
         <div class="section-header">
           <span class="section-title">Recent</span>
         </div>

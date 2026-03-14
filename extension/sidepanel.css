@@ -1,24 +1,22 @@
-/* sidepanel.css — ScrollSense side panel */
+/* sidepanel.css — WatchTrace side panel */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:        #0f0f0f;
-  --surface:   #181818;
-  --surface2:  #202020;
-  --border:    #2c2c2c;
-  --accent:    #e53e3e;
+  --bg:        #1e2424;
+  --surface:   #242c2c;
+  --surface2:  #2d3535;
+  --border:    #3c4848;
+  --accent:    #f97316;
   --text:      #e2e2e2;
-  --muted:     #888;
-  --label:     #666;
+  --muted:     #889090;
+  --label:     #6a7474;
   --radius:    8px;
   --radius-sm: 5px;
   --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
-  /* Score bar colours */
-  --edu-color:  #4ade80;
-  --emo-color:  #f87171;
-  --risk-color: #fb923c;
+  /* All score bars use a single orange */
+  --bar-color: #f97316;
 }
 
 html, body {
@@ -36,8 +34,8 @@ html, body {
 .app-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 11px 14px;
+  justify-content: center;
+  padding: 13px 14px;
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
@@ -45,24 +43,23 @@ html, body {
   z-index: 10;
 }
 
-.logo {
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: -0.4px;
-  color: var(--accent);
-  flex: 1;
+.logo-group {
+  display: flex;
+  align-items: center;
+  gap: 9px;
 }
 
-.header-badge {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--muted);
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 2px 6px;
+.logo-icon {
+  color: var(--text);
+  opacity: 0.85;
+  flex-shrink: 0;
+}
+
+.logo {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  color: var(--text);
 }
 
 /* ── Main scroll area ────────────────────────────────────────────────────── */
@@ -70,7 +67,7 @@ html, body {
 .app-main {
   padding: 12px 14px 20px;
   overflow-y: auto;
-  height: calc(100vh - 39px);
+  height: calc(100vh - 43px);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -156,6 +153,25 @@ html, body {
   margin-top: 5px;
   font-size: 11px;
   color: var(--muted);
+  text-align: center;
+  padding: 0 8px;
+}
+
+/* ── Platform badge (inside content card) ───────────────────────────────── */
+
+.platform-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 3px 10px;
+  margin-bottom: 7px;
+  align-self: flex-start;
 }
 
 /* ── Content card ────────────────────────────────────────────────────────── */
@@ -171,8 +187,8 @@ html, body {
 }
 
 .card-title {
-  font-size: 12.5px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
   color: var(--text);
   line-height: 1.4;
   word-break: break-word;
@@ -181,6 +197,7 @@ html, body {
 .card-sub {
   font-size: 11px;
   color: var(--muted);
+  margin-top: 1px;
 }
 
 .card-url {
@@ -188,7 +205,7 @@ html, body {
   color: var(--label);
   word-break: break-all;
   text-decoration: none;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .card-url:hover { color: var(--muted); text-decoration: underline; }
@@ -236,14 +253,13 @@ html, body {
   padding: 11px 13px;
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 10px;
 }
 
 .analysis-top {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
 }
 
 /* Dynamic colour via --cat-color CSS custom property set in JS */
@@ -258,49 +274,25 @@ html, body {
   flex: 1;
 }
 
-.confidence-pill {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--muted);
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 2px 9px;
+.confidence-text {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
   white-space: nowrap;
-}
-
-.analysis-reason {
-  font-size: 11.5px;
-  color: var(--muted);
-  line-height: 1.55;
+  flex-shrink: 0;
 }
 
 /* ── Score bars ──────────────────────────────────────────────────────────── */
 
-.scores-section {
+.scores {
   display: flex;
   flex-direction: column;
   gap: 7px;
 }
 
-.scores-label {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: var(--label);
-}
-
-.scores {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding-top: 2px;
-}
-
 .score-row {
   display: grid;
-  grid-template-columns: 100px 1fr 32px;
+  grid-template-columns: 90px 1fr 32px;
   align-items: center;
   gap: 8px;
 }
@@ -312,7 +304,7 @@ html, body {
 }
 
 .score-track {
-  height: 4px;
+  height: 5px;
   background: var(--surface2);
   border-radius: 3px;
   overflow: hidden;
@@ -322,16 +314,13 @@ html, body {
   height: 100%;
   width: 0%;
   border-radius: 3px;
+  background: var(--bar-color);
   transition: width 0.4s ease;
 }
 
-.score-fill--edu  { background: var(--edu-color); }
-.score-fill--emo  { background: var(--emo-color); }
-.score-fill--risk { background: var(--risk-color); }
-
 .score-val {
-  font-size: 10px;
-  color: var(--label);
+  font-size: 10.5px;
+  color: var(--muted);
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -374,104 +363,7 @@ html, body {
 
 .btn-retry:hover { opacity: 0.85; }
 
-/* ── Session pattern section ─────────────────────────────────────────────── */
-
-.session-section {
-  margin-top: 4px;
-}
-
-.session-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 11px 13px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.session-label-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* --session-color is set inline by JS, same pattern as --cat-color */
-.session-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--session-color, #9ca3af);
-  background: color-mix(in srgb, var(--session-color, #9ca3af) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--session-color, #9ca3af) 30%, transparent);
-  border-radius: var(--radius-sm);
-  padding: 3px 9px;
-}
-
-.session-diversity {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--muted);
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 2px 7px;
-  white-space: nowrap;
-}
-
-.session-summary {
-  font-size: 11.5px;
-  color: var(--muted);
-  line-height: 1.55;
-}
-
-.session-insights {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding-top: 2px;
-  border-top: 1px solid var(--border);
-  padding-top: 8px;
-  margin: 0;
-}
-
-.session-insight {
-  font-size: 11px;
-  color: var(--text);
-  opacity: 0.75;
-  padding-left: 12px;
-  position: relative;
-  line-height: 1.45;
-}
-
-.session-insight::before {
-  content: '·';
-  position: absolute;
-  left: 2px;
-  color: var(--session-color, #9ca3af);
-  font-weight: 700;
-}
-
-.session-recs {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.session-rec {
-  font-size: 10.5px;
-  color: var(--muted);
-  background: var(--surface2);
-  border-radius: var(--radius-sm);
-  padding: 5px 8px;
-  line-height: 1.4;
-}
-
-/* ── History section ─────────────────────────────────────────────────────── */
-
-.history-section {
-  margin-top: 4px;
-}
+/* ── Section header (shared) ─────────────────────────────────────────────── */
 
 .section-header {
   display: flex;
@@ -487,24 +379,134 @@ html, body {
   color: var(--label);
 }
 
+/* ── Session pattern section ─────────────────────────────────────────────── */
+
+.session-section {
+  margin-top: 4px;
+}
+
+.session-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 11px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.session-label-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* --session-color is set inline by JS */
+.session-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--session-color, #9ca3af);
+  background: color-mix(in srgb, var(--session-color, #9ca3af) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--session-color, #9ca3af) 30%, transparent);
+  border-radius: var(--radius-sm);
+  padding: 3px 9px;
+  flex: 1;
+}
+
+.session-diversity {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Category distribution bars inside session card */
+.session-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.session-bars .score-row {
+  grid-template-columns: 90px 1fr 32px;
+  align-items: start;
+}
+
+.session-bars .score-label {
+  white-space: normal;
+  line-height: 1.35;
+}
+
+.session-bars .score-track {
+  margin-top: 5px;
+}
+
+/* Stats row at bottom of session card */
+.session-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.stat-box {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.stat-label {
+  font-size: 9.5px;
+  color: var(--label);
+  text-align: center;
+  font-weight: 500;
+}
+
+.stat-val {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+}
+
+/* ── History section ─────────────────────────────────────────────────────── */
+
+.history-section {
+  margin-top: 4px;
+}
+
 .history-list {
   display: flex;
   flex-direction: column;
   gap: 1px;
+  min-height: 80px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px;
+}
+
+.history-list:empty {
+  /* Empty box visible even with no items */
+  min-height: 120px;
 }
 
 .history-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
-  background: var(--surface);
+  padding: 7px 8px;
+  background: var(--surface2);
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  transition: border-color 0.15s;
+  transition: background 0.15s;
 }
 
-.history-item:hover { border-color: #3a3a3a; }
+.history-item:hover { background: #323e3e; }
 
 .history-item-main {
   flex: 1;
@@ -543,4 +545,4 @@ html, body {
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: #3a3a3a; }
+::-webkit-scrollbar-thumb:hover { background: #4a5656; }
