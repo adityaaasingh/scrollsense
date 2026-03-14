@@ -24,14 +24,16 @@
       test: (h) => h.includes('youtube.com'),
       extract: extractYouTube,    // ← inlined below from utils/extractors/youtube.js
     },
+    {
+      test: (h) => h.includes('reddit.com'),
+      extract: extractReddit,     // ← inlined below from utils/extractors/reddit.js
+    },
+    {
+      test: (h) => h.includes('x.com') || h.includes('twitter.com'),
+      extract: extractX,          // ← inlined below from utils/extractors/x.js
+    },
 
     // ── Plug future platforms in here ──────────────────────────────────────
-    // { test: (h) => h.includes('reddit.com'),
-    //   extract: extractReddit },  // ← inline utils/extractors/reddit.js
-
-    // { test: (h) => h.includes('x.com') || h.includes('twitter.com'),
-    //   extract: extractX },       // ← inline utils/extractors/x.js
-
     // { test: (h) => NEWS_DOMAINS.some((d) => h.includes(d)),
     //   extract: extractNews },    // ← inline utils/extractors/news.js
     //   (NEWS_DOMAINS exported from news.js — inline that array here too)
@@ -113,6 +115,110 @@
       visible_text: ytVisibleText(),
       captured_at: new Date().toISOString(),
       _dedup_key: videoId,             // stripped before sending; used only for dedup
+    };
+  }
+
+  // ─── Reddit extractor (inlined) ──────────────────────────────────────────
+  // Kept in sync with utils/extractors/reddit.js.
+  // Handles both the legacy layout and the 2024+ shreddit web-component layout.
+
+  const REDDIT_TITLE_SELECTORS = [
+    'h1[slot="title"]',               // shreddit <shreddit-post> component
+    '[data-testid="post-title"]',     // legacy layout
+    'h1.title',                       // very old layout
+  ];
+
+  const REDDIT_CREATOR_SELECTORS = [
+    'a[data-testid="post_author_link"]',   // legacy
+    'a[data-click-id="user"]',             // legacy fallback
+    'shreddit-post [slot="authorName"] a', // shreddit
+    'span[data-testid="post_author_link"]',
+  ];
+
+  const REDDIT_BODY_SELECTORS = [
+    '[data-click-id="text"] > div',
+    '[data-testid="post-container"] [data-click-id="text"]',
+    'shreddit-post [slot="text-body"]',
+  ];
+
+  function extractReddit() {
+    if (!location.hostname.includes('reddit.com')) return null;
+    if (!location.pathname.includes('/comments/')) return null;
+
+    const titleEl   = queryFirstNonEmpty(REDDIT_TITLE_SELECTORS);
+    const creatorEl = queryFirstNonEmpty(REDDIT_CREATOR_SELECTORS);
+    const bodyEl    = queryFirstNonEmpty(REDDIT_BODY_SELECTORS);
+
+    const title   = titleEl   ? titleEl.textContent.trim() : null;
+    const creator = creatorEl
+      ? creatorEl.textContent.replace(/^u\//, '').trim()
+      : null;
+    const body    = bodyEl    ? bodyEl.textContent.trim().slice(0, 1000) : null;
+
+    // Require at least a title to avoid sending empty payloads on non-post pages.
+    if (!title) return null;
+
+    return {
+      platform: 'reddit',
+      content_type: 'post',
+      url: location.href,
+      title,
+      creator,
+      visible_text: [title, body].filter(Boolean).join('\n\n') || null,
+      captured_at: new Date().toISOString(),
+      _dedup_key: location.pathname,  // stable per post regardless of ?sort= changes
+    };
+  }
+
+  // ─── X / Twitter extractor (inlined) ─────────────────────────────────────
+  // Kept in sync with utils/extractors/x.js.
+  // X is an aggressive SPA; selectors use data-testid hooks (most stable).
+
+  const X_TEXT_SELECTORS = [
+    '[data-testid="tweetText"]',        // primary tweet text on /status/ page
+    'article [lang] > span',            // fallback text span
+  ];
+
+  const X_AUTHOR_SELECTORS = [
+    // Display name (not @handle) — first non-handle span inside User-Name
+    '[data-testid="User-Name"] span:not([dir="ltr"])',
+    'article [data-testid="User-Name"] span:first-child',
+    '[data-testid="User-Name"] a[href*="/"] span',
+  ];
+
+  function xTweetIdFromUrl() {
+    const match = location.pathname.match(/\/status\/(\d+)/);
+    return match ? match[1] : null;
+  }
+
+  function extractX() {
+    const host = location.hostname;
+    if (!host.includes('x.com') && !host.includes('twitter.com')) return null;
+
+    const tweetId = xTweetIdFromUrl();
+    if (!tweetId) return null;   // not on a single-tweet page
+
+    const textEl   = queryFirstNonEmpty(X_TEXT_SELECTORS);
+    const authorEl = queryFirstNonEmpty(X_AUTHOR_SELECTORS);
+
+    const text    = textEl   ? textEl.textContent.trim().slice(0, 1000) : null;
+    const creator = authorEl ? authorEl.textContent.trim() : null;
+
+    // X posts have no title — use leading text as a surrogate.
+    const title = text ? text.slice(0, 120) : null;
+
+    // Require at least tweet text to avoid empty payloads.
+    if (!text) return null;
+
+    return {
+      platform: 'x',
+      content_type: 'post',
+      url: location.href,
+      title,
+      creator,
+      visible_text: text,
+      captured_at: new Date().toISOString(),
+      _dedup_key: tweetId,
     };
   }
 

@@ -24,12 +24,12 @@ from app.services import gemini_client
 logger = logging.getLogger(__name__)
 
 # ── Category constants (must match classifier.py VALID_CATEGORIES) ──────────
-CAT_EDUCATIONAL = "Educational"
+CAT_EDUCATIONAL   = "Educational"
 CAT_ENTERTAINMENT = "Entertainment"
-CAT_NEWS = "Credible News"
-CAT_OPINION = "Opinion / Commentary"
-CAT_HIGH_EMOTION = "High-Emotion / Rage-Bait"
-CAT_OTHER = "Other"
+CAT_NEWS          = "Credible News"
+CAT_OPINION       = "Opinion / Commentary"
+CAT_HIGH_EMOTION  = "High-Emotion / Rage-Bait"
+CAT_OTHER         = "Other"
 
 # Sports keywords for detecting a sports-heavy entertainment session.
 _SPORTS_KW = {
@@ -47,15 +47,14 @@ async def analyze_session(items: list[HistoryItem]) -> SessionInsightResponse:
     """
     Full async pipeline. Safe: never raises, always returns a response.
     """
-    # Restrict to items that have a category (unclassified items skipped for metrics).
+    # Only classified items contribute to metrics; fall back to all items for
+    # total count so the caller sees the real session size.
     classified = [i for i in items if i.category]
-    if not classified:
-        # Nothing classified yet — return a minimal response.
-        classified = items  # use all so at least total is correct
+    base = classified if classified else items
 
-    metrics = _compute_metrics(classified, total_seen=len(items))
-    label = _assign_label(metrics, classified)
-    insights = _generate_insights(metrics, classified)
+    metrics = _compute_metrics(base, total_seen=len(items))
+    label = _assign_label(metrics, base)
+    insights = _generate_insights(metrics, base)
     recommendations = _generate_recommendations(metrics, label)
     summary = await _generate_summary(label, metrics)
 
@@ -68,32 +67,58 @@ async def analyze_session(items: list[HistoryItem]) -> SessionInsightResponse:
     )
 
 
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+def _pct(ratio: float) -> str:
+    return f"{round(ratio * 100)}%"
+
+
+def _norm_hhi(counts: Counter, total: int) -> float:
+    """
+    Normalised Herfindahl–Hirschman Index over `counts`.
+    0.0 = perfectly distributed across entities, 1.0 = single entity holds all.
+    """
+    if not counts or total == 0:
+        return 0.0
+    k = len(counts)
+    if k == 1:
+        return 1.0
+    raw = sum((c / total) ** 2 for c in counts.values())
+    return round((raw - 1 / k) / (1 - 1 / k), 3)
+
+
 # ── Metrics computation ──────────────────────────────────────────────────────
 
 def _compute_metrics(items: list[HistoryItem], total_seen: int) -> SessionMetrics:
     n = len(items)
 
-    # Category distribution
+    # ── Category distribution ────────────────────────────────────────────────
     cats = [i.category for i in items if i.category]
     cat_counts = Counter(cats)
     top_category = cat_counts.most_common(1)[0][0] if cat_counts else CAT_OTHER
     cat_dist = {cat: round(count / n, 3) for cat, count in cat_counts.most_common()}
 
-    # Creator frequency
+    # ── Platform mix ─────────────────────────────────────────────────────────
+    platforms = [i.platform for i in items if i.platform]
+    platform_counts = Counter(platforms)
+    platform_mix = {p: round(c / n, 3) for p, c in platform_counts.most_common()}
+
+    # ── Creator metrics ──────────────────────────────────────────────────────
     creators = [i.creator for i in items if i.creator]
     creator_counts = Counter(creators)
     top_creators = [c for c, _ in creator_counts.most_common(3)]
 
-    # Repetition score: fraction of items from the single most-watched creator.
-    # 1.0 = all videos from one creator; 0.0 = no creator info or all unique.
-    if creator_counts:
-        top_creator_n = creator_counts.most_common(1)[0][1]
-        repetition_score = round(top_creator_n / n, 3)
-    else:
-        repetition_score = 0.0
+    # repetition_score: fraction of items from the single most-watched creator.
+    repetition_score = (
+        round(creator_counts.most_common(1)[0][1] / n, 3) if creator_counts else 0.0
+    )
 
-    # Diversity score: normalised Shannon entropy over category distribution.
-    # 1.0 = every item in a different category; 0.0 = single category.
+    # creator_concentration_score: normalised HHI across all creators.
+    # Captures "two creators dominating" that repetition_score alone misses.
+    creator_concentration_score = _norm_hhi(creator_counts, n)
+
+    # ── Diversity score: normalised Shannon entropy over categories ──────────
+    # 1.0 = items spread evenly across all categories; 0.0 = single category.
     n_cats = len(cat_counts)
     if n_cats <= 1:
         diversity_score = 0.0
@@ -102,14 +127,16 @@ def _compute_metrics(items: list[HistoryItem], total_seen: int) -> SessionMetric
         max_entropy = math.log2(n_cats)
         diversity_score = round(entropy / max_entropy, 3) if max_entropy else 0.0
 
-    educational_ratio = round(cat_counts.get(CAT_EDUCATIONAL, 0) / n, 3)
+    educational_ratio  = round(cat_counts.get(CAT_EDUCATIONAL,  0) / n, 3)
     high_emotion_ratio = round(cat_counts.get(CAT_HIGH_EMOTION, 0) / n, 3)
 
     return SessionMetrics(
         total=total_seen,
         top_category=top_category,
         category_distribution=cat_dist,
+        platform_mix=platform_mix,
         top_creators=top_creators,
+        creator_concentration_score=creator_concentration_score,
         repetition_score=repetition_score,
         diversity_score=diversity_score,
         educational_ratio=educational_ratio,
@@ -120,7 +147,7 @@ def _compute_metrics(items: list[HistoryItem], total_seen: int) -> SessionMetric
 # ── Label assignment ─────────────────────────────────────────────────────────
 
 def _is_sports_heavy(items: list[HistoryItem]) -> bool:
-    """Return True if ≥2 sports keywords appear across all item titles."""
+    """Return True if ≥2 distinct sports keywords appear across all item titles."""
     text = " ".join((i.title or "") for i in items).lower()
     return sum(1 for kw in _SPORTS_KW if kw in text) >= 2
 
@@ -129,7 +156,7 @@ def _assign_label(metrics: SessionMetrics, items: list[HistoryItem]) -> str:
     """
     Priority-ordered rules. First match wins.
 
-    Thresholds are intentionally loose so the label fires meaningfully
+    Thresholds are intentionally loose so a label fires meaningfully
     even on short sessions (3–5 items).
     """
     m = metrics
@@ -141,7 +168,9 @@ def _assign_label(metrics: SessionMetrics, items: list[HistoryItem]) -> str:
     if m.high_emotion_ratio >= 0.4:
         return "Rage Feed"
 
-    if m.repetition_score >= 0.5:
+    # Creator Binge uses both metrics: repetition catches a single dominant
+    # creator; concentration catches two creators alternating together.
+    if m.repetition_score >= 0.5 or m.creator_concentration_score >= 0.7:
         return "Creator Binge"
 
     if m.top_category == CAT_OPINION and top_frac >= 0.4:
@@ -153,7 +182,7 @@ def _assign_label(metrics: SessionMetrics, items: list[HistoryItem]) -> str:
         return "Entertainment Loop"
 
     if m.top_category == CAT_NEWS and top_frac >= 0.4:
-        return "News Dive"
+        return "News Spiral"
 
     if m.diversity_score >= 0.72:
         return "Balanced Feed"
@@ -162,10 +191,6 @@ def _assign_label(metrics: SessionMetrics, items: list[HistoryItem]) -> str:
 
 
 # ── Insights ─────────────────────────────────────────────────────────────────
-
-def _pct(ratio: float) -> str:
-    return f"{round(ratio * 100)}%"
-
 
 def _generate_insights(metrics: SessionMetrics, items: list[HistoryItem]) -> list[str]:
     """Always returns exactly 3 insight strings."""
@@ -176,7 +201,7 @@ def _generate_insights(metrics: SessionMetrics, items: list[HistoryItem]) -> lis
     n_cats = len(m.category_distribution)
     top_frac = m.category_distribution.get(m.top_category, 0.0)
     if n_cats == 1:
-        out.append(f"Every video in this session is {m.top_category}.")
+        out.append(f"Every classified item in this session is {m.top_category}.")
     elif top_frac >= 0.6:
         out.append(
             f"{_pct(top_frac)} of your session is {m.top_category}, "
@@ -188,31 +213,39 @@ def _generate_insights(metrics: SessionMetrics, items: list[HistoryItem]) -> lis
             f"{m.top_category} leads at {_pct(top_frac)}."
         )
 
-    # Insight 2: creator focus
+    # Insight 2: creator / platform focus
     n_creators = len({i.creator for i in items if i.creator})
+    n_platforms = len(m.platform_mix)
     if m.repetition_score >= 0.5 and m.top_creators:
         out.append(
-            f"Over half your videos are from {m.top_creators[0]} — "
-            f"you're deep in one creator's content."
+            f"Over half your content is from {m.top_creators[0]} — "
+            f"you're deep in one creator's feed."
+        )
+    elif n_creators == 0 and n_platforms > 1:
+        out.append(
+            "Content spans "
+            + ", ".join(f"{p} ({_pct(f)})" for p, f in m.platform_mix.items())
+            + "."
         )
     elif n_creators == 0:
         out.append("No creator information was available for this session.")
     elif n_creators == 1:
-        out.append(f"All videos are from a single creator: {m.top_creators[0]}.")
+        out.append(f"All content is from a single creator: {m.top_creators[0]}.")
     else:
+        platform_note = f" across {n_platforms} platforms" if n_platforms > 1 else ""
         out.append(
-            f"You've watched content from {n_creators} different creators"
+            f"You've consumed content from {n_creators} different creators{platform_note}"
             + (f", led by {m.top_creators[0]}." if m.top_creators else ".")
         )
 
-    # Insight 3: signal — emotional tone or learning balance
+    # Insight 3: emotional / educational signal
     if m.high_emotion_ratio >= 0.3:
         out.append(
             f"{_pct(m.high_emotion_ratio)} of this session is high-emotion or rage-bait content."
         )
     elif m.educational_ratio >= 0.3:
         out.append(
-            f"{_pct(m.educational_ratio)} of your session is educational — nice balance."
+            f"{_pct(m.educational_ratio)} of your session is educational — a solid ratio."
         )
     elif m.educational_ratio == 0.0:
         out.append("None of this session's content has been flagged as educational.")
@@ -232,18 +265,25 @@ def _generate_recommendations(metrics: SessionMetrics, label: str) -> list[str]:
     recs: list[str] = []
 
     if m.high_emotion_ratio >= 0.3:
-        recs.append("Mix in some educational or credible news content to balance the emotional tone.")
+        recs.append(
+            "Mix in some educational or credible news content to balance the emotional tone."
+        )
 
-    if m.repetition_score >= 0.5:
-        recs.append("Try exploring creators you haven't watched before for a broader perspective.")
+    if m.repetition_score >= 0.5 or m.creator_concentration_score >= 0.7:
+        recs.append(
+            "Try exploring creators you haven't watched before for a broader perspective."
+        )
 
     if m.educational_ratio == 0.0 and label not in ("Balanced Feed", "Learning Mode"):
-        recs.append("Consider adding a documentary, tutorial, or explainer to the session.")
+        recs.append(
+            "Consider adding a documentary, tutorial, or explainer to the session."
+        )
 
     if m.diversity_score < 0.25 and label not in ("Learning Mode",):
-        recs.append("Your session is very narrowly focused — a different category might be refreshing.")
+        recs.append(
+            "Your session is very narrowly focused — a different category might be refreshing."
+        )
 
-    # Cap at 3; always return at least 1.
     recs = recs[:3]
     if not recs:
         recs.append("Your session looks healthy — keep exploring different content types.")
@@ -260,7 +300,8 @@ Be observational and non-judgmental. Do not use the word "spiral".
 
 Session label: {label}
 Top category: {top_category} ({top_pct}% of session)
-Total videos: {total}
+Total items: {total}
+Platforms: {platforms}
 Educational: {edu_pct}%  |  High-emotion: {emo_pct}%  |  Diversity: {div_pct}%
 Top creators: {top_creators}
 
@@ -270,18 +311,21 @@ Respond with the sentence only — no quotes, no explanation."""
 def _canned_summary(label: str, metrics: SessionMetrics) -> str:
     m = metrics
     top_pct = round(m.category_distribution.get(m.top_category, 0) * 100)
-    templates = {
+    top_creator = m.top_creators[0] if m.top_creators else "one creator"
+    n_cats = len(m.category_distribution)
+
+    templates: dict[str, str] = {
         "Learning Mode":       f"You're in a focused learning session — {top_pct}% educational content so far.",
-        "Rage Feed":           f"This session is heavy on emotional content — {_pct(m.high_emotion_ratio)} of videos are high-intensity.",
-        "Creator Binge":       f"You've locked onto {m.top_creators[0] if m.top_creators else 'one creator'} for the bulk of this session.",
+        "Rage Feed":           f"This session is heavy on emotional content — {_pct(m.high_emotion_ratio)} of items are high-intensity.",
+        "Creator Binge":       f"You've locked onto {top_creator} for the bulk of this session.",
         "Commentary Cluster":  f"Most of what you're watching is opinion and commentary — {top_pct}% of the session.",
-        "Entertainment Loop":  f"It's been a mostly entertainment session — {top_pct}% of videos fall in that category.",
+        "Entertainment Loop":  f"It's been a mostly entertainment session — {top_pct}% of content falls in that category.",
         "Sports Spiral":       f"Your session is dominated by sports content — {top_pct}% of what you've watched.",
-        "News Dive":           f"You've been keeping up with the news — {top_pct}% credible news content this session.",
-        "Balanced Feed":       f"Nicely balanced session across {len(m.category_distribution)} categories.",
-        "Mixed Session":       f"A varied session — {m.top_category} leads at {top_pct}% with no dominant pattern.",
+        "News Spiral":         f"You've been keeping up with the news — {top_pct}% credible news content this session.",
+        "Balanced Feed":       f"Nicely balanced session across {n_cats} categories.",
+        "Mixed Session":       f"A varied session — {m.top_category} leads at {top_pct}% with no single dominant pattern.",
     }
-    return templates.get(label, f"Your session is labeled '{label}' with {m.total} videos watched.")
+    return templates.get(label, f"Your session is labeled '{label}' with {m.total} items watched.")
 
 
 async def _generate_summary(label: str, metrics: SessionMetrics) -> str:
@@ -290,11 +334,16 @@ async def _generate_summary(label: str, metrics: SessionMetrics) -> str:
 
     m = metrics
     top_pct = round(m.category_distribution.get(m.top_category, 0) * 100)
+    platforms_str = (
+        ", ".join(f"{p} ({_pct(f)})" for p, f in m.platform_mix.items()) or "unknown"
+    )
+
     prompt = _SUMMARY_PROMPT.format(
         label=label,
         top_category=m.top_category,
         top_pct=top_pct,
         total=m.total,
+        platforms=platforms_str,
         edu_pct=round(m.educational_ratio * 100),
         emo_pct=round(m.high_emotion_ratio * 100),
         div_pct=round(m.diversity_score * 100),
@@ -307,7 +356,6 @@ async def _generate_summary(label: str, metrics: SessionMetrics) -> str:
             timeout=GEMINI_TIMEOUT_S,
         )
         sentence = raw.strip().strip('"').strip("'")
-        # Sanity-check: reject suspiciously long or empty responses.
         if 5 < len(sentence) < 300:
             logger.debug("[session] Gemini summary: %s", sentence)
             return sentence

@@ -12,7 +12,10 @@
   ],
 
   "host_permissions": [
-    "https://www.youtube.com/*"
+    "https://www.youtube.com/*",
+    "https://www.reddit.com/*",
+    "https://x.com/*",
+    "https://twitter.com/*"
   ],
 
   "background": {
@@ -22,7 +25,12 @@
 
   "content_scripts": [
     {
-      "matches": ["https://www.youtube.com/*"],
+      "matches": [
+        "https://www.youtube.com/*",
+        "https://www.reddit.com/*",
+        "https://x.com/*",
+        "https://twitter.com/*"
+      ],
       "js": ["content.js"],
       "run_at": "document_idle"
     }
