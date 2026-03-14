@@ -186,24 +186,41 @@
   }
 
   // ─── X / Twitter extractor (inlined) ─────────────────────────────────────
-  // Kept in sync with utils/extractors/x.js.
-  // X is an aggressive SPA; selectors use data-testid hooks (most stable).
+  // Kept in sync with utils/extractors/x.js — that file is the authoritative source.
+  // X is an aggressive React SPA; data-testid hooks are the most stable selectors.
 
+  // Scoped selector first so replies on the same /status/ page don't bleed in.
   const X_TEXT_SELECTORS = [
-    '[data-testid="tweetText"]',        // primary tweet text on /status/ page
-    'article [lang] > span',            // fallback text span
+    'article[data-testid="tweet"] [data-testid="tweetText"]', // scoped to focal article
+    '[data-testid="tweetText"]',                              // first on page (focal tweet)
+    'article [lang] > span',                                  // last-resort text span
   ];
 
-  const X_AUTHOR_SELECTORS = [
-    // Display name (not @handle) — first non-handle span inside User-Name
-    '[data-testid="User-Name"] span:not([dir="ltr"])',
-    'article [data-testid="User-Name"] span:first-child',
-    '[data-testid="User-Name"] a[href*="/"] span',
+  // Display name sits in a span WITHOUT dir="ltr"; @handle spans carry dir="ltr".
+  const X_DISPLAY_NAME_SELECTORS = [
+    '[data-testid="User-Name"] span:not([dir])',      // display name — no dir attribute
+    '[data-testid="User-Name"] a > div > span',       // display name via profile link
+    '[data-testid="User-Name"] span:first-of-type',  // first span in name block
   ];
 
   function xTweetIdFromUrl() {
-    const match = location.pathname.match(/\/status\/(\d+)/);
-    return match ? match[1] : null;
+    const m = location.pathname.match(/\/status\/(\d+)/);
+    return m ? m[1] : null;
+  }
+
+  // @handle is always in the URL: x.com/<handle>/status/<id> — reliable fallback.
+  function xHandleFromUrl() {
+    const m = location.pathname.match(/^\/([^/]+)\/status\//);
+    return m ? `@${m[1]}` : null;
+  }
+
+  function xDisplayName() {
+    const el = queryFirstNonEmpty(X_DISPLAY_NAME_SELECTORS);
+    if (!el) return null;
+    const text = el.textContent.trim();
+    // Discard if it looks like a handle or is implausibly long.
+    if (!text || text.startsWith('@') || text.length > 80) return null;
+    return text;
   }
 
   function extractX() {
@@ -211,29 +228,29 @@
     if (!host.includes('x.com') && !host.includes('twitter.com')) return null;
 
     const tweetId = xTweetIdFromUrl();
-    if (!tweetId) return null;   // not on a single-tweet page
+    if (!tweetId) return null;  // feed, profile, or search page
 
-    const textEl   = queryFirstNonEmpty(X_TEXT_SELECTORS);
-    const authorEl = queryFirstNonEmpty(X_AUTHOR_SELECTORS);
+    const textEl = queryFirstNonEmpty(X_TEXT_SELECTORS);
+    const text   = textEl ? textEl.textContent.trim().slice(0, 1000) : null;
 
-    const text    = textEl   ? textEl.textContent.trim().slice(0, 1000) : null;
-    const creator = authorEl ? authorEl.textContent.trim() : null;
-
-    // X posts have no title — use leading text as a surrogate.
-    const title = text ? text.slice(0, 120) : null;
-
-    // Require at least tweet text to avoid empty payloads.
+    // Require tweet text — if absent, DOM hasn't hydrated; the +1500ms retry handles it.
     if (!text) return null;
 
+    // Prefer DOM display name; always fall back to @handle from URL.
+    const creator = xDisplayName() || xHandleFromUrl();
+
+    // X has no separate title — use leading tweet text as a surrogate.
+    const title = text.slice(0, 120);
+
     return {
-      platform: 'x',
+      platform:     'x',
       content_type: 'post',
-      url: location.href,
+      url:          location.href,
       title,
       creator,
       visible_text: text,
-      captured_at: new Date().toISOString(),
-      _dedup_key: tweetId,
+      captured_at:  new Date().toISOString(),
+      _dedup_key:   tweetId,
     };
   }
 

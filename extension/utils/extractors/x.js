@@ -1,33 +1,31 @@
-// utils/extractors/x.js — X (Twitter) extraction stub
+// utils/extractors/x.js — X (Twitter) post extraction
 //
-// HOW TO ACTIVATE:
-//   1. Implement the TODO selectors below.
-//   2. Register in content.js EXTRACTORS:
-//        { test: (h) => h.includes('x.com') || h.includes('twitter.com'), extract: extractX }
-//   3. Add to manifest.json:
-//        host_permissions: "https://x.com/*", "https://twitter.com/*"
-//        content_scripts.matches: "https://x.com/*", "https://twitter.com/*"
+// ALREADY ACTIVE: registered in content.js EXTRACTORS + manifest.json.
 //
-// NOTE: X is an SPA that mutates the DOM aggressively. The MutationObserver
-// in content.js already handles this, but selectors must be re-validated after
-// any X redesign. history.pushState patching in content.js handles navigation.
+// creator field = display name when detectable, @handle from URL as reliable fallback.
+// X is an aggressive React SPA — data-testid hooks are the most stable selectors.
+// The MutationObserver + history.pushState patching in content.js handles SPA nav.
+//
+// Tweet text scoped to the focal article (first on status page) so replies are ignored.
 
 'use strict';
 
-// ── Selector candidates ───────────────────────────────────────────────────────
-// X does not use stable IDs; prefer aria attributes and data-testid hooks.
-const SELECTORS = {
-  // The focused/open tweet text on a status page (/status/<id>)
-  tweetText: [
-    '[data-testid="tweetText"]',          // main tweet text
-    'article [lang] > span',              // fallback text span
-  ],
-  // Author handle — shown in the article header
-  author: [
-    '[data-testid="User-Name"] a[href*="/"] span', // display name
-    'article [data-testid="User-Name"] span:first-child',
-  ],
-};
+// ── Tweet text selectors ──────────────────────────────────────────────────────
+// Try scoped selector first so replies on the same page don't bleed in.
+const X_TEXT_SELECTORS = [
+  'article[data-testid="tweet"] [data-testid="tweetText"]', // scoped to focal article
+  '[data-testid="tweetText"]',                              // first on page (focal tweet)
+  'article [lang] > span',                                  // last-resort text span
+];
+
+// ── Display name selectors ────────────────────────────────────────────────────
+// X wraps display name + @handle together inside [data-testid="User-Name"].
+// The display name is in a span that does NOT carry dir="ltr" (handles do).
+const X_DISPLAY_NAME_SELECTORS = [
+  '[data-testid="User-Name"] span:not([dir])',       // display name — no dir attribute
+  '[data-testid="User-Name"] a > div > span',        // display name via profile link
+  '[data-testid="User-Name"] span:first-of-type',   // first span in name block
+];
 
 function queryFirstNonEmpty(selectors) {
   for (const sel of selectors) {
@@ -37,40 +35,78 @@ function queryFirstNonEmpty(selectors) {
   return null;
 }
 
-function tweetIdFromUrl() {
-  // URL: https://x.com/<handle>/status/<id>
-  const match = location.pathname.match(/\/status\/(\d+)/);
-  return match ? match[1] : null;
+// ── Author helpers ────────────────────────────────────────────────────────────
+
+/**
+ * Extract @handle from the URL. Always works on /status/ pages.
+ * URL shape: x.com/<handle>/status/<id>  (first path segment = handle)
+ */
+function xHandleFromUrl() {
+  const m = location.pathname.match(/^\/([^/]+)\/status\//);
+  return m ? `@${m[1]}` : null;
 }
 
 /**
- * Extract metadata from an X status (tweet) page.
- * Returns null if not on a /status/ page.
+ * Try to extract the display name from the DOM.
+ * Returns null if the element is empty, looks like a handle, or DOM hasn't hydrated.
+ */
+function xDisplayName() {
+  const el = queryFirstNonEmpty(X_DISPLAY_NAME_SELECTORS);
+  if (!el) return null;
+  const text = el.textContent.trim();
+  // Discard if it looks like a handle or is implausibly long (grabbed wrong element).
+  if (!text || text.startsWith('@') || text.length > 80) return null;
+  return text;
+}
+
+/**
+ * Return the best available creator identifier.
+ * Priority: display name (DOM) → @handle (URL, always available).
+ */
+function xCreator() {
+  return xDisplayName() || xHandleFromUrl();
+}
+
+function xTweetIdFromUrl() {
+  const m = location.pathname.match(/\/status\/(\d+)/);
+  return m ? m[1] : null;
+}
+
+// ── Main extractor ────────────────────────────────────────────────────────────
+
+/**
+ * Extract metadata from an X/Twitter status page.
+ * Returns null if:
+ *   - Not on x.com or twitter.com
+ *   - Not on a single-tweet /status/<id> page
+ *   - No tweet text found (e.g., page hasn't hydrated yet — retry fires at +1500ms)
  */
 export function extractX() {
-  if (!location.hostname.includes('x.com') && !location.hostname.includes('twitter.com')) return null;
+  const host = location.hostname;
+  if (!host.includes('x.com') && !host.includes('twitter.com')) return null;
 
-  const tweetId = tweetIdFromUrl();
-  if (!tweetId) return null;  // not on a single-tweet page
+  const tweetId = xTweetIdFromUrl();
+  if (!tweetId) return null;  // feed, profile, or search page — not a status page
 
-  // TODO: implement selector extraction; X re-renders frequently
-  const textEl   = queryFirstNonEmpty(SELECTORS.tweetText);
-  const authorEl = queryFirstNonEmpty(SELECTORS.author);
+  const textEl = queryFirstNonEmpty(X_TEXT_SELECTORS);
+  const text   = textEl ? textEl.textContent.trim().slice(0, 1000) : null;
 
-  const text    = textEl   ? textEl.textContent.trim().slice(0, 1000) : null;
-  const creator = authorEl ? authorEl.textContent.trim() : null;
+  // Require tweet text — if missing, DOM hasn't rendered yet; the +1500ms retry handles it.
+  if (!text) return null;
 
-  // X posts have no separate title; use truncated tweet text as the title.
-  const title = text ? text.slice(0, 120) : null;
+  const creator = xCreator();
+
+  // X has no separate title field — use leading tweet text as a surrogate.
+  const title = text.slice(0, 120);
 
   return {
-    platform: 'x',
+    platform:     'x',
     content_type: 'post',
-    url: location.href,
+    url:          location.href,
     title,
     creator,
     visible_text: text,
-    captured_at: new Date().toISOString(),
-    _dedup_key: tweetId,
+    captured_at:  new Date().toISOString(),
+    _dedup_key:   tweetId,   // stripped before sending; used only for dedup in content.js
   };
 }
