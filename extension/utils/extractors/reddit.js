@@ -1,34 +1,30 @@
-// utils/extractors/reddit.js — Reddit extraction stub
+// utils/extractors/reddit.js — Reddit post extraction
 //
-// HOW TO ACTIVATE:
-//   1. Implement the TODO selectors below.
-//   2. Register in content.js EXTRACTORS:
-//        { test: (h) => h.includes('reddit.com'), extract: extractReddit }
-//   3. Add to manifest.json:
-//        host_permissions: "https://www.reddit.com/*"
-//        content_scripts.matches: "https://www.reddit.com/*"
+// ALREADY ACTIVE: registered in content.js EXTRACTORS + manifest.json.
 //
-// The normalized payload shape must remain unchanged — only the DOM selectors
-// and _dedup_key logic are Reddit-specific.
+// creator field = subreddit name (e.g. "r/programming"), not post author.
+// Subreddit is a more stable identity for session pattern detection; it lets the
+// session analyzer catch "subreddit binges" the same way it catches creator loops.
+//
+// The normalized payload shape is unchanged — only the extraction logic is here.
 
 'use strict';
 
-// ── Selector candidates (Reddit's React DOM, as of 2025) ──────────────────────
-// Reddit rebuilds layouts frequently; keep fallback chains as with youtube.js.
-const SELECTORS = {
-  title: [
-    'h1[slot="title"]',           // new.reddit shreddit layout
-    '[data-testid="post-title"]', // older layout
-  ],
-  creator: [
-    'a[data-testid="post_author_link"]',  // post author link
-    'a[data-click-id="user"]',            // fallback
-  ],
-  body: [
-    '[data-click-id="text"] > div',       // text post body
-    '[data-testid="post-container"] [data-click-id="text"]',
-  ],
-};
+// ── Title selectors ───────────────────────────────────────────────────────────
+// Ordered most-specific first. shreddit-post attribute is tried before DOM.
+const TITLE_SELECTORS = [
+  'h1[slot="title"]',            // shreddit <shreddit-post> slot
+  '[data-testid="post-title"]',  // legacy new.reddit
+  'h1.title',                    // old.reddit
+];
+
+// ── Body selectors ────────────────────────────────────────────────────────────
+const BODY_SELECTORS = [
+  'shreddit-post [slot="text-body"]',                     // shreddit
+  '[data-click-id="text"] > div',                         // legacy new.reddit
+  '[data-testid="post-container"] [data-click-id="text"]', // legacy fallback
+  'div[data-click-id="text"]',                            // old.reddit
+];
 
 function queryFirstNonEmpty(selectors) {
   for (const sel of selectors) {
@@ -38,31 +34,67 @@ function queryFirstNonEmpty(selectors) {
   return null;
 }
 
+// ── Subreddit detection ───────────────────────────────────────────────────────
+// Three tiers, most reliable first. The URL fallback always works for
+// /r/<sub>/comments/<id>/... pages so extraction never fails silently.
+
+function redditSubreddit() {
+  // 1. shreddit-post web component exposes subreddit-prefixed-name as an attribute.
+  //    This is the most direct and stable source in the new layout.
+  const post = document.querySelector('shreddit-post');
+  if (post) {
+    const attr = post.getAttribute('subreddit-prefixed-name');
+    if (attr) return attr;  // already "r/subredditname"
+  }
+
+  // 2. Legacy new.reddit: subreddit link rendered near the post header.
+  const subLink = document.querySelector('a[data-click-id="subreddit"]');
+  if (subLink?.textContent.trim()) return subLink.textContent.trim();
+
+  // 3. URL fallback — always available on post pages.
+  const m = location.pathname.match(/\/r\/([^/]+)/);
+  return m ? `r/${m[1]}` : null;
+}
+
+// ── Title detection ───────────────────────────────────────────────────────────
+
+function redditTitle() {
+  // shreddit-post may expose the title as a post-title attribute.
+  const post = document.querySelector('shreddit-post');
+  if (post) {
+    const attr = post.getAttribute('post-title');
+    if (attr) return attr;
+  }
+  const el = queryFirstNonEmpty(TITLE_SELECTORS);
+  return el ? el.textContent.trim() : null;
+}
+
+// ── Main extractor ────────────────────────────────────────────────────────────
+
 /**
  * Extract metadata from a Reddit post page.
- * Returns null if not on a post page.
+ * Returns null if not on a /r/*/comments/* URL or if no content is found.
  */
 export function extractReddit() {
   if (!location.hostname.includes('reddit.com')) return null;
   if (!location.pathname.includes('/comments/')) return null;
 
-  // TODO: implement selector extraction
-  const titleEl   = queryFirstNonEmpty(SELECTORS.title);
-  const creatorEl = queryFirstNonEmpty(SELECTORS.creator);
-  const bodyEl    = queryFirstNonEmpty(SELECTORS.body);
+  const subreddit = redditSubreddit();
+  const title     = redditTitle();
+  const bodyEl    = queryFirstNonEmpty(BODY_SELECTORS);
+  const body      = bodyEl ? bodyEl.textContent.trim().slice(0, 1000) : null;
 
-  const title   = titleEl   ? titleEl.textContent.trim()            : null;
-  const creator = creatorEl ? creatorEl.textContent.replace(/^u\//, '').trim() : null;
-  const body    = bodyEl    ? bodyEl.textContent.trim().slice(0, 1000) : null;
+  // Guard: at least one of title or subreddit must be present.
+  if (!title && !subreddit) return null;
 
   return {
-    platform: 'reddit',
+    platform:     'reddit',
     content_type: 'post',
-    url: location.href,
-    title,
-    creator,
+    url:          location.href,
+    title:        title ?? subreddit,  // subreddit as title fallback (rare edge case)
+    creator:      subreddit,           // r/subredditname — primary grouping identity
     visible_text: [title, body].filter(Boolean).join('\n\n') || null,
-    captured_at: new Date().toISOString(),
-    _dedup_key: location.pathname,  // unique per post; stays stable even if ?sort= changes
+    captured_at:  new Date().toISOString(),
+    _dedup_key:   location.pathname,   // stable per post; ignores ?sort= and fragments
   };
 }

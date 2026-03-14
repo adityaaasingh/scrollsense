@@ -119,54 +119,69 @@
   }
 
   // ─── Reddit extractor (inlined) ──────────────────────────────────────────
-  // Kept in sync with utils/extractors/reddit.js.
-  // Handles both the legacy layout and the 2024+ shreddit web-component layout.
+  // Kept in sync with utils/extractors/reddit.js — that file is authoritative.
+  // creator = subreddit name (r/subredditname), not post author.
+  // Three-tier subreddit detection: attribute → link → URL fallback.
 
   const REDDIT_TITLE_SELECTORS = [
-    'h1[slot="title"]',               // shreddit <shreddit-post> component
-    '[data-testid="post-title"]',     // legacy layout
-    'h1.title',                       // very old layout
-  ];
-
-  const REDDIT_CREATOR_SELECTORS = [
-    'a[data-testid="post_author_link"]',   // legacy
-    'a[data-click-id="user"]',             // legacy fallback
-    'shreddit-post [slot="authorName"] a', // shreddit
-    'span[data-testid="post_author_link"]',
+    'h1[slot="title"]',            // shreddit <shreddit-post> slot
+    '[data-testid="post-title"]',  // legacy new.reddit
+    'h1.title',                    // old.reddit
   ];
 
   const REDDIT_BODY_SELECTORS = [
-    '[data-click-id="text"] > div',
-    '[data-testid="post-container"] [data-click-id="text"]',
-    'shreddit-post [slot="text-body"]',
+    'shreddit-post [slot="text-body"]',                      // shreddit
+    '[data-click-id="text"] > div',                          // legacy new.reddit
+    '[data-testid="post-container"] [data-click-id="text"]', // legacy fallback
+    'div[data-click-id="text"]',                             // old.reddit
   ];
+
+  function redditSubreddit() {
+    // 1. shreddit-post web component attribute — most direct, new layout.
+    const post = document.querySelector('shreddit-post');
+    if (post) {
+      const attr = post.getAttribute('subreddit-prefixed-name');
+      if (attr) return attr;   // already "r/subredditname"
+    }
+    // 2. Legacy: subreddit link near the post header.
+    const subLink = document.querySelector('a[data-click-id="subreddit"]');
+    if (subLink?.textContent.trim()) return subLink.textContent.trim();
+    // 3. URL — always available on /r/*/comments/* pages.
+    const m = location.pathname.match(/\/r\/([^/]+)/);
+    return m ? `r/${m[1]}` : null;
+  }
+
+  function redditTitle() {
+    // shreddit-post may carry the title as a post-title attribute.
+    const post = document.querySelector('shreddit-post');
+    if (post) {
+      const attr = post.getAttribute('post-title');
+      if (attr) return attr;
+    }
+    const el = queryFirstNonEmpty(REDDIT_TITLE_SELECTORS);
+    return el ? el.textContent.trim() : null;
+  }
 
   function extractReddit() {
     if (!location.hostname.includes('reddit.com')) return null;
     if (!location.pathname.includes('/comments/')) return null;
 
-    const titleEl   = queryFirstNonEmpty(REDDIT_TITLE_SELECTORS);
-    const creatorEl = queryFirstNonEmpty(REDDIT_CREATOR_SELECTORS);
+    const subreddit = redditSubreddit();
+    const title     = redditTitle();
     const bodyEl    = queryFirstNonEmpty(REDDIT_BODY_SELECTORS);
+    const body      = bodyEl ? bodyEl.textContent.trim().slice(0, 1000) : null;
 
-    const title   = titleEl   ? titleEl.textContent.trim() : null;
-    const creator = creatorEl
-      ? creatorEl.textContent.replace(/^u\//, '').trim()
-      : null;
-    const body    = bodyEl    ? bodyEl.textContent.trim().slice(0, 1000) : null;
-
-    // Require at least a title to avoid sending empty payloads on non-post pages.
-    if (!title) return null;
+    if (!title && !subreddit) return null;
 
     return {
-      platform: 'reddit',
+      platform:     'reddit',
       content_type: 'post',
-      url: location.href,
-      title,
-      creator,
+      url:          location.href,
+      title:        title ?? subreddit,
+      creator:      subreddit,          // r/subredditname — primary grouping identity
       visible_text: [title, body].filter(Boolean).join('\n\n') || null,
-      captured_at: new Date().toISOString(),
-      _dedup_key: location.pathname,  // stable per post regardless of ?sort= changes
+      captured_at:  new Date().toISOString(),
+      _dedup_key:   location.pathname,  // stable per post; ignores ?sort= and fragments
     };
   }
 

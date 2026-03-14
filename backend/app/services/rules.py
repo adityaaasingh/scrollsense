@@ -136,6 +136,115 @@ _NEWS_SIGNAL = re.compile(
     re.IGNORECASE,
 )
 
+# ── Reddit-specific title patterns ────────────────────────────────────────────
+# These acronyms/prefixes are Reddit conventions that directly signal content type.
+
+_REDDIT_TIL        = re.compile(r"^TIL\b",                                          re.IGNORECASE)
+_REDDIT_ELI5       = re.compile(r"^ELI5\b|explain\s+like\s+i'?m?\s+(five|5)\b",    re.IGNORECASE)
+_REDDIT_AMA        = re.compile(r"^AMA[\s:]|\bI\s+am\s+a\b.{0,60}\bAMA\b|\bask\s+me\s+anything\b", re.IGNORECASE)
+_REDDIT_CMV        = re.compile(r"^CMV[\s:]|change\s+my\s+view\b",                  re.IGNORECASE)
+_REDDIT_PSA        = re.compile(r"^PSA[\s:]|public\s+service\s+announ",             re.IGNORECASE)
+_REDDIT_DISCUSSION = re.compile(r"^\[?(?:discussion|meta|analysis)\]?[\s:]",        re.IGNORECASE)
+_REDDIT_MEME       = re.compile(r"\b(meme|shitpost|wholesome|cursed|based|dank)\b", re.IGNORECASE)
+
+# ── Reddit subreddit → (category, confidence, high_confidence) ────────────────
+# creator field contains the subreddit in "r/name" format (set by the extractor).
+# Slug is lowercased, r/ prefix stripped before lookup.
+
+_REDDIT_SUBREDDIT_MAP: dict[str, tuple[str, float, bool]] = {
+    # ── Credible News ─────────────────────────────────────────────────────────
+    "worldnews":        (CAT_CREDIBLE_NEWS, 0.80, True),
+    "news":             (CAT_CREDIBLE_NEWS, 0.75, True),
+    "politics":         (CAT_CREDIBLE_NEWS, 0.60, False),  # often commentary
+    "geopolitics":      (CAT_CREDIBLE_NEWS, 0.72, True),
+    "inthenews":        (CAT_CREDIBLE_NEWS, 0.70, True),
+    "usnews":           (CAT_CREDIBLE_NEWS, 0.72, True),
+    "ukpolitics":       (CAT_CREDIBLE_NEWS, 0.65, False),
+    "europe":           (CAT_CREDIBLE_NEWS, 0.62, False),
+    "economics":        (CAT_CREDIBLE_NEWS, 0.65, False),
+    "technology":       (CAT_CREDIBLE_NEWS, 0.60, False),
+
+    # ── Educational ───────────────────────────────────────────────────────────
+    "science":              (CAT_EDUCATIONAL, 0.82, True),
+    "explainlikeimfive":    (CAT_EDUCATIONAL, 0.88, True),
+    "eli5":                 (CAT_EDUCATIONAL, 0.88, True),
+    "askscience":           (CAT_EDUCATIONAL, 0.80, True),
+    "history":              (CAT_EDUCATIONAL, 0.78, True),
+    "todayilearned":        (CAT_EDUCATIONAL, 0.78, True),
+    "til":                  (CAT_EDUCATIONAL, 0.78, True),
+    "machinelearning":      (CAT_EDUCATIONAL, 0.75, True),
+    "learnprogramming":     (CAT_EDUCATIONAL, 0.82, True),
+    "learnpython":          (CAT_EDUCATIONAL, 0.80, True),
+    "programming":          (CAT_EDUCATIONAL, 0.68, False),
+    "compsci":              (CAT_EDUCATIONAL, 0.72, True),
+    "datascience":          (CAT_EDUCATIONAL, 0.72, True),
+    "space":                (CAT_EDUCATIONAL, 0.72, True),
+    "physics":              (CAT_EDUCATIONAL, 0.78, True),
+    "biology":              (CAT_EDUCATIONAL, 0.75, True),
+    "chemistry":            (CAT_EDUCATIONAL, 0.75, True),
+    "math":                 (CAT_EDUCATIONAL, 0.78, True),
+    "mathematics":          (CAT_EDUCATIONAL, 0.78, True),
+    "personalfinance":      (CAT_EDUCATIONAL, 0.65, False),
+    "investing":            (CAT_EDUCATIONAL, 0.62, False),
+
+    # ── Opinion / Commentary ──────────────────────────────────────────────────
+    "askreddit":            (CAT_OPINION, 0.82, True),
+    "unpopularopinion":     (CAT_OPINION, 0.85, True),
+    "changemyview":         (CAT_OPINION, 0.85, True),
+    "cmv":                  (CAT_OPINION, 0.85, True),
+    "rant":                 (CAT_OPINION, 0.78, True),
+    "trueoffmychest":       (CAT_OPINION, 0.70, False),
+    "offmychest":           (CAT_OPINION, 0.68, False),
+    "amitheasshole":        (CAT_OPINION, 0.78, True),
+    "iama":                 (CAT_OPINION, 0.78, False),   # AMA prefix pattern handles high-conf cases
+    "relationship_advice":  (CAT_OPINION, 0.70, False),
+    "tifu":                 (CAT_OPINION, 0.65, False),
+    "confession":           (CAT_OPINION, 0.65, False),
+    "legaladvice":          (CAT_OPINION, 0.62, False),
+
+    # ── High-Emotion / Rage-Bait ──────────────────────────────────────────────
+    "mildlyinfuriating":    (CAT_HIGH_EMOTION, 0.78, True),
+    "publicfreakout":       (CAT_HIGH_EMOTION, 0.82, True),
+    "facepalm":             (CAT_HIGH_EMOTION, 0.72, True),
+    "trashy":               (CAT_HIGH_EMOTION, 0.72, True),
+    "cringe":               (CAT_HIGH_EMOTION, 0.68, False),
+    "iamatotalpieceofshit": (CAT_HIGH_EMOTION, 0.75, True),
+    "quityourbullshit":     (CAT_HIGH_EMOTION, 0.72, True),
+    "nottheonion":          (CAT_HIGH_EMOTION, 0.58, False),
+    "rage":                 (CAT_HIGH_EMOTION, 0.78, True),
+
+    # ── Entertainment ─────────────────────────────────────────────────────────
+    "funny":            (CAT_ENTERTAINMENT, 0.85, True),
+    "memes":            (CAT_ENTERTAINMENT, 0.85, True),
+    "dankmemes":        (CAT_ENTERTAINMENT, 0.85, True),
+    "me_irl":           (CAT_ENTERTAINMENT, 0.80, True),
+    "videos":           (CAT_ENTERTAINMENT, 0.68, False),
+    "gifs":             (CAT_ENTERTAINMENT, 0.72, True),
+    "gaming":           (CAT_ENTERTAINMENT, 0.80, True),
+    "pcgaming":         (CAT_ENTERTAINMENT, 0.78, True),
+    "movies":           (CAT_ENTERTAINMENT, 0.70, False),
+    "television":       (CAT_ENTERTAINMENT, 0.70, False),
+    "music":            (CAT_ENTERTAINMENT, 0.70, False),
+    "sports":           (CAT_ENTERTAINMENT, 0.78, True),
+    "nba":              (CAT_ENTERTAINMENT, 0.80, True),
+    "nfl":              (CAT_ENTERTAINMENT, 0.80, True),
+    "soccer":           (CAT_ENTERTAINMENT, 0.80, True),
+    "formula1":         (CAT_ENTERTAINMENT, 0.80, True),
+    "food":             (CAT_ENTERTAINMENT, 0.70, False),
+    "pics":             (CAT_ENTERTAINMENT, 0.62, False),
+    "aww":              (CAT_ENTERTAINMENT, 0.82, True),
+    "mademesmile":      (CAT_ENTERTAINMENT, 0.78, True),
+    "oddlysatisfying":  (CAT_ENTERTAINMENT, 0.78, True),
+    "nextfuckinglevel": (CAT_ENTERTAINMENT, 0.68, False),
+}
+
+
+def _reddit_slug(creator: str) -> str:
+    """Normalize 'r/subredditName' → 'subredditname' for map lookup."""
+    s = creator.strip().lower()
+    return s[2:] if s.startswith("r/") else s
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _clamp(v: float) -> float:
@@ -200,8 +309,8 @@ def check_rules(payload: ContentPayload) -> Optional[RulesResult]:
 
 
 def _rules_youtube(payload, title, creator, text, sig) -> Optional[RulesResult]:
-    he_count  = len(_HIGH_EMOTION.findall(text))
-    ent_count = len(_ENTERTAINMENT_CORE.findall(text))
+    he_count   = len(_HIGH_EMOTION.findall(text))
+    ent_count  = len(_ENTERTAINMENT_CORE.findall(text))
     ente_count = len(_ENTERTAINMENT_EXT.findall(text))
 
     # ── 1. Trusted news creator → Credible News ───────────────────────────────
@@ -245,7 +354,6 @@ def _rules_youtube(payload, title, creator, text, sig) -> Optional[RulesResult]:
         )
 
     # ── 3. Educational ────────────────────────────────────────────────────────
-    # Require 2+ educational signals OR 1 strong one in the title specifically.
     edu_in_title = len(_EDUCATIONAL.findall(title))
     if sig["educational"] >= 0.55 or edu_in_title >= 2 or (
         edu_in_title >= 1 and sig["educational"] >= 0.25
@@ -313,10 +421,6 @@ def _rules_youtube(payload, title, creator, text, sig) -> Optional[RulesResult]:
         )
 
     # ── 7. YouTube default ────────────────────────────────────────────────────
-    # Most YouTube content is entertainment in the broad sense.
-    # Return a low-confidence Entertainment result rather than None so the
-    # deterministic fallback path doesn't silently emit "Other".
-    # high_confidence=False ensures Gemini still refines this if available.
     return RulesResult(
         response=AnalysisResponse(
             category=CAT_ENTERTAINMENT,
@@ -352,19 +456,228 @@ def _entertainment_reason(title: str, match_count: int) -> str:
 
 def _rules_reddit(payload, title, creator, text, sig) -> Optional[RulesResult]:
     """
-    Reddit-specific classification rules.
+    Reddit classification.
 
-    TODO: Implement when Reddit support is added.
-    Signals to consider:
-      - Subreddit (extractable from URL: /r/<subreddit>/) → strong category signal
-        e.g. r/science → Educational, r/worldnews → Credible News, r/AskReddit → Opinion
-      - Post flair (often explicit category label)
-      - Vote/comment ratio as a rough engagement/emotion proxy
-      - NSFW flag → could indicate High-Emotion content
-
-    For now, falls through to generic keyword scoring.
+    Priority order:
+      1. High-confidence subreddit map (e.g. r/science → Educational, r/funny → Entertainment)
+      2. Reddit title-prefix conventions (TIL, ELI5, CMV, AMA, PSA)
+      3. High-emotion keyword signals (same regex as YouTube)
+      4. Educational keyword signals
+      5. Opinion keyword signals
+      6. News keyword signals
+      7. Low-confidence subreddit map (high_confidence=False entries used as tiebreaker)
+      8. Meme/entertainment text signals
+      9. Default: Other (not Entertainment — Reddit content is too varied)
     """
-    return _rules_generic(payload, title, creator, text, sig)
+    slug = _reddit_slug(creator)
+    he_count = len(_HIGH_EMOTION.findall(text))
+
+    # ── 1. Subreddit map — high-confidence entries ────────────────────────────
+    if slug in _REDDIT_SUBREDDIT_MAP:
+        cat, conf, hc = _REDDIT_SUBREDDIT_MAP[slug]
+        if hc:
+            return RulesResult(
+                response=AnalysisResponse(
+                    category=cat,
+                    confidence=conf,
+                    reason=f"Subreddit r/{slug} is a strong indicator of {cat} content.",
+                    scores=_reddit_scores(cat, sig),
+                ),
+                high_confidence=True,
+            )
+
+    # ── 2. Reddit title-prefix conventions ───────────────────────────────────
+    # These are explicit community signals, more reliable than generic keywords.
+
+    if _REDDIT_TIL.search(title):
+        return RulesResult(
+            response=AnalysisResponse(
+                category=CAT_EDUCATIONAL,
+                confidence=0.80,
+                reason="Post begins with 'TIL' — a Today I Learned educational post.",
+                scores=Scores(educational=0.80, high_emotion=0.05, credibility_risk=0.10),
+            ),
+            high_confidence=True,
+        )
+
+    if _REDDIT_ELI5.search(title):
+        return RulesResult(
+            response=AnalysisResponse(
+                category=CAT_EDUCATIONAL,
+                confidence=0.82,
+                reason="Post is an Explain Like I'm Five (ELI5) request.",
+                scores=Scores(educational=0.82, high_emotion=0.02, credibility_risk=0.05),
+            ),
+            high_confidence=True,
+        )
+
+    if _REDDIT_AMA.search(title):
+        return RulesResult(
+            response=AnalysisResponse(
+                category=CAT_OPINION,
+                confidence=0.78,
+                reason="Post is an Ask Me Anything (AMA) — first-person Q&A format.",
+                scores=Scores(educational=0.30, high_emotion=0.05, credibility_risk=0.10),
+            ),
+            high_confidence=False,
+        )
+
+    if _REDDIT_CMV.search(title):
+        return RulesResult(
+            response=AnalysisResponse(
+                category=CAT_OPINION,
+                confidence=0.82,
+                reason="Post is a Change My View (CMV) — explicit opinion/debate format.",
+                scores=Scores(educational=0.25, high_emotion=0.15, credibility_risk=0.25),
+            ),
+            high_confidence=True,
+        )
+
+    if _REDDIT_PSA.search(title):
+        # PSA can be news-adjacent or opinion; lean toward Opinion with Gemini refinement.
+        return RulesResult(
+            response=AnalysisResponse(
+                category=CAT_OPINION,
+                confidence=0.60,
+                reason="Post is labeled as a Public Service Announcement (PSA).",
+                scores=Scores(educational=0.30, high_emotion=0.15, credibility_risk=0.20),
+            ),
+            high_confidence=False,
+        )
+
+    if _REDDIT_DISCUSSION.search(title):
+        return RulesResult(
+            response=AnalysisResponse(
+                category=CAT_OPINION,
+                confidence=0.62,
+                reason="Post is explicitly flagged as a discussion or meta thread.",
+                scores=Scores(educational=0.20, high_emotion=0.15, credibility_risk=0.20),
+            ),
+            high_confidence=False,
+        )
+
+    # ── 3. High-emotion signals ───────────────────────────────────────────────
+    if he_count >= 2 or sig["high_emotion"] >= 0.55:
+        return RulesResult(
+            response=AnalysisResponse(
+                category=CAT_HIGH_EMOTION,
+                confidence=_clamp(0.60 + he_count * 0.05),
+                reason="Title or post body contains multiple high-emotion trigger phrases.",
+                scores=Scores(
+                    educational=_clamp(sig["educational"] * 0.5),
+                    high_emotion=_clamp(sig["high_emotion"] + 0.20),
+                    credibility_risk=_clamp(sig["high_emotion"] + 0.10),
+                ),
+            ),
+            high_confidence=False,
+        )
+
+    # ── 4. Educational keyword signals ───────────────────────────────────────
+    edu_in_title = len(_EDUCATIONAL.findall(title))
+    if sig["educational"] >= 0.55 or edu_in_title >= 2 or (
+        edu_in_title >= 1 and sig["educational"] >= 0.25
+    ):
+        return RulesResult(
+            response=AnalysisResponse(
+                category=CAT_EDUCATIONAL,
+                confidence=_clamp(0.58 + sig["educational"] * 0.20),
+                reason="Post title contains educational signal words.",
+                scores=Scores(
+                    educational=_clamp(sig["educational"] + 0.20),
+                    high_emotion=_clamp(sig["high_emotion"]),
+                    credibility_risk=0.10,
+                ),
+            ),
+            high_confidence=False,
+        )
+
+    # ── 5. Opinion keyword signals ────────────────────────────────────────────
+    if sig["opinion"] >= 0.25:
+        return RulesResult(
+            response=AnalysisResponse(
+                category=CAT_OPINION,
+                confidence=_clamp(0.55 + sig["opinion"] * 0.15),
+                reason="Post title or body suggests first-person opinion or discussion.",
+                scores=Scores(
+                    educational=0.15,
+                    high_emotion=_clamp(sig["high_emotion"]),
+                    credibility_risk=0.25,
+                ),
+            ),
+            high_confidence=False,
+        )
+
+    # ── 6. News keyword signals ───────────────────────────────────────────────
+    if sig["news"] >= 0.40:
+        return RulesResult(
+            response=AnalysisResponse(
+                category=CAT_CREDIBLE_NEWS,
+                confidence=0.55,
+                reason="Post title contains news-reporting language.",
+                scores=Scores(educational=0.30, high_emotion=0.10, credibility_risk=0.25),
+            ),
+            high_confidence=False,
+        )
+
+    # ── 7. Subreddit map — medium-confidence entries (high_confidence=False) ──
+    if slug in _REDDIT_SUBREDDIT_MAP:
+        cat, conf, _ = _REDDIT_SUBREDDIT_MAP[slug]
+        return RulesResult(
+            response=AnalysisResponse(
+                category=cat,
+                confidence=conf,
+                reason=f"Subreddit r/{slug} suggests {cat} content.",
+                scores=_reddit_scores(cat, sig),
+            ),
+            high_confidence=False,
+        )
+
+    # ── 8. Meme / entertainment text signals ──────────────────────────────────
+    if _REDDIT_MEME.search(text) or sig["entertainment"] >= 0.35:
+        return RulesResult(
+            response=AnalysisResponse(
+                category=CAT_ENTERTAINMENT,
+                confidence=0.55,
+                reason="Post content matches entertainment or meme-format signals.",
+                scores=Scores(educational=0.05, high_emotion=0.15, credibility_risk=0.10),
+            ),
+            high_confidence=False,
+        )
+
+    # ── 9. Reddit default — Other (let Gemini decide) ─────────────────────────
+    # Reddit content is diverse enough that Entertainment is not a safe default.
+    return RulesResult(
+        response=AnalysisResponse(
+            category=CAT_OTHER,
+            confidence=0.40,
+            reason="No strong category signals detected for this Reddit post.",
+            scores=Scores(
+                educational=_clamp(sig["educational"]),
+                high_emotion=_clamp(sig["high_emotion"]),
+                credibility_risk=0.15,
+            ),
+        ),
+        high_confidence=False,
+    )
+
+
+def _reddit_scores(category: str, sig: dict) -> Scores:
+    """Return sensible baseline Scores for a Reddit subreddit-mapped result."""
+    base = {
+        CAT_CREDIBLE_NEWS:  Scores(educational=0.35, high_emotion=0.10, credibility_risk=0.15),
+        CAT_EDUCATIONAL:    Scores(educational=0.75, high_emotion=0.05, credibility_risk=0.08),
+        CAT_OPINION:        Scores(educational=0.15, high_emotion=0.20, credibility_risk=0.30),
+        CAT_HIGH_EMOTION:   Scores(educational=0.05, high_emotion=0.80, credibility_risk=0.50),
+        CAT_ENTERTAINMENT:  Scores(educational=0.05, high_emotion=0.15, credibility_risk=0.08),
+        CAT_OTHER:          Scores(educational=0.10, high_emotion=0.10, credibility_risk=0.15),
+    }
+    scores = base.get(category, base[CAT_OTHER])
+    # Layer in any keyword signals detected in the text.
+    return Scores(
+        educational=_clamp(max(scores.educational, sig["educational"])),
+        high_emotion=_clamp(max(scores.high_emotion, sig["high_emotion"])),
+        credibility_risk=scores.credibility_risk,
+    )
 
 
 def _rules_x(payload, title, creator, text, sig) -> Optional[RulesResult]:
@@ -385,21 +698,7 @@ def _rules_x(payload, title, creator, text, sig) -> Optional[RulesResult]:
 
 
 def _rules_news(payload, title, creator, text, sig) -> Optional[RulesResult]:
-    """
-    News article specific classification rules.
-
-    TODO: Implement when news-site support is added.
-    Signals to consider:
-      - Known publisher domain (already partially handled in _TRUSTED_NEWS_CREATORS
-        via creator field — reuse or extend that list here)
-      - Article section/category from URL path (e.g. /opinion/, /technology/, /sport/)
-      - Byline presence → boosts Credible News
-      - Opinion section URL → Opinion / Commentary with high confidence
-
-    For now, defaults to Credible News with moderate confidence if the trusted-
-    creator check passes, otherwise falls to generic scoring.
-    """
-    # Trusted news creators are publication-level; applies directly to news articles.
+    """News article specific classification rules."""
     if _TRUSTED_NEWS_CREATORS.search(creator) or _TRUSTED_NEWS_CREATORS.search(payload.url or ""):
         return RulesResult(
             response=AnalysisResponse(
@@ -411,7 +710,6 @@ def _rules_news(payload, title, creator, text, sig) -> Optional[RulesResult]:
             high_confidence=True,
         )
 
-    # Opinion URL signal — many publishers use /opinion/ or /comment/ in the path.
     if re.search(r"/opinion[s]?/|/commentary/|/editorial/|/columns?/", payload.url or ""):
         return RulesResult(
             response=AnalysisResponse(
