@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ScrollSense — Dashboard</title>
+    <link rel="stylesheet" href="dashboard.css" />
+  </head>
+  <body>
+    <header class="top-bar">
+      <span class="logo">ScrollSense</span>
+      <span class="tagline">Your Attention, Visualised</span>
+    </header>
+
+    <!-- ── Upload zone ───────────────────────────────────────────── -->
+    <section id="upload-section" class="section">
+      <h2 class="section-title">Upload Your YouTube History</h2>
+      <p class="section-desc">
+        Go to <a href="https://takeout.google.com" target="_blank" class="link">Google Takeout</a>,
+        export your YouTube watch history, and upload the <code>watch-history.json</code> file below.
+      </p>
+      <div id="drop-zone" class="drop-zone">
+        <div class="drop-icon">&#128194;</div>
+        <p class="drop-text">Drag &amp; drop <code>watch-history.json</code> here</p>
+        <p class="drop-or">or</p>
+        <label class="btn btn-primary">
+          Choose File
+          <input type="file" id="file-input" accept=".json" hidden />
+        </label>
+      </div>
+      <div id="upload-status" class="upload-status"></div>
+    </section>
+
+    <!-- ── Results (hidden until upload) ────────────────────────── -->
+    <div id="results-container" class="hidden">
+
+      <!-- Stats banner -->
+      <section class="section">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <p class="stat-value" id="stat-total">0</p>
+            <p class="stat-label">Videos Analysed</p>
+          </div>
+          <div class="stat-card">
+            <p class="stat-value" id="stat-hours">0</p>
+            <p class="stat-label">Est. Hours Watched</p>
+          </div>
+          <div class="stat-card">
+            <p class="stat-value" id="stat-days">0</p>
+            <p class="stat-label">Days Covered</p>
+          </div>
+          <div class="stat-card">
+            <p class="stat-value" id="stat-skipped">0</p>
+            <p class="stat-label">Skipped / Ads</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Category breakdown -->
+      <section class="section">
+        <h2 class="section-title">Content Breakdown</h2>
+        <div class="chart-row">
+          <div class="chart-box">
+            <canvas id="chart-categories"></canvas>
+          </div>
+          <div class="chart-box">
+            <canvas id="chart-hours"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- Top channels -->
+      <section class="section">
+        <h2 class="section-title">Top Channels</h2>
+        <div class="table-wrap">
+          <table id="channels-table" class="data-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Channel</th>
+                <th>Videos</th>
+                <th>Category</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Attention Bill -->
+      <section class="section">
+        <h2 class="section-title">Your Attention Bill</h2>
+        <div id="bill-receipt" class="receipt">
+          <div class="receipt-header">
+            <p class="receipt-brand">SCROLLSENSE</p>
+            <p class="receipt-subtitle">Attention Invoice</p>
+          </div>
+          <div class="receipt-meta">
+            <p id="bill-platform"></p>
+            <p id="bill-period"></p>
+          </div>
+          <hr class="receipt-divider" />
+          <table id="bill-lines" class="receipt-table">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Videos</th>
+                <th>Hours</th>
+                <th>Value</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <hr class="receipt-divider" />
+          <div class="receipt-total">
+            <span>TOTAL</span>
+            <span id="bill-total">$0.00</span>
+          </div>
+          <div class="receipt-total sub">
+            <span>Total Hours</span>
+            <span id="bill-total-hours">0</span>
+          </div>
+          <hr class="receipt-divider" />
+          <div class="projections">
+            <p class="projections-title">If you keep this pace...</p>
+            <div class="projections-grid">
+              <div class="proj-card">
+                <p class="proj-value" id="proj-weekly-hours">0h</p>
+                <p class="proj-label">/ week</p>
+                <p class="proj-value small" id="proj-weekly-value">$0.00</p>
+              </div>
+              <div class="proj-card">
+                <p class="proj-value" id="proj-monthly-hours">0h</p>
+                <p class="proj-label">/ month</p>
+                <p class="proj-value small" id="proj-monthly-value">$0.00</p>
+              </div>
+              <div class="proj-card">
+                <p class="proj-value" id="proj-yearly-hours">0h</p>
+                <p class="proj-label">/ year</p>
+                <p class="proj-value small" id="proj-yearly-value">$0.00</p>
+              </div>
+            </div>
+          </div>
+          <hr class="receipt-divider" />
+          <div id="trades-list" class="trades">
+            <p class="trades-title">Instead, you could have...</p>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <script src="lib/chart.min.js"></script>
+    <script src="dashboard.js" type="module"></script>
+  </body>
+</html>

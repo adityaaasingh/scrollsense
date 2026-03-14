@@ -1,21 +1,23 @@
-/* sidepanel.css — ScrollSense side panel */
+/* sidepanel.css — ScrollSense side panel (merged) */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
+  /* Aditya's darker theme */
   --bg:        #0f0f0f;
   --surface:   #181818;
   --surface2:  #202020;
   --border:    #2c2c2c;
   --accent:    #e53e3e;
+  --green:     #22c55e;
   --text:      #e2e2e2;
   --muted:     #888;
   --label:     #666;
   --radius:    8px;
   --radius-sm: 5px;
-  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif;
 
-  /* Score bar colours */
+  /* Score bar colours (CSS vars for flexibility) */
   --edu-color:  #4ade80;
   --emo-color:  #f87171;
   --risk-color: #fb923c;
@@ -31,13 +33,135 @@ html, body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ── Header ──────────────────────────────────────────────────────────────── */
+.hidden { display: none !important; }
+
+/* ── Auth screen (Advith) ──────────────────────────────────────────────── */
+
+.auth-screen {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 20px;
+}
+
+.auth-container {
+  width: 100%;
+  max-width: 300px;
+}
+
+.auth-logo {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--accent);
+  text-align: center;
+  letter-spacing: -0.5px;
+}
+
+.auth-tagline {
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+  margin-bottom: 24px;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.input-group label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--label);
+}
+
+.input-group input {
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.input-group input:focus {
+  border-color: var(--accent);
+}
+
+.input-group input::placeholder {
+  color: #555;
+}
+
+.auth-error {
+  font-size: 12px;
+  color: var(--accent);
+  min-height: 18px;
+}
+
+.btn-auth {
+  padding: 10px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.btn-auth:hover { opacity: 0.85; }
+
+.btn-auth:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.auth-switch {
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.auth-switch a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.auth-switch a:hover {
+  text-decoration: underline;
+}
+
+/* ── App screen ────────────────────────────────────────────────────────── */
+
+.app-screen {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header (merged) ───────────────────────────────────────────────────── */
 
 .app-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 11px 14px;
+  justify-content: space-between;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
@@ -45,12 +169,17 @@ html, body {
   z-index: 10;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .logo {
   font-size: 14px;
   font-weight: 700;
   letter-spacing: -0.4px;
   color: var(--accent);
-  flex: 1;
 }
 
 .header-badge {
@@ -65,18 +194,99 @@ html, body {
   padding: 2px 6px;
 }
 
-/* ── Main scroll area ────────────────────────────────────────────────────── */
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.user-name {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-icon:hover {
+  background: var(--surface2);
+  color: var(--text);
+}
+
+.btn-icon:focus-visible {
+  outline: 2px solid rgba(229, 62, 62, 0.35);
+  outline-offset: 1px;
+}
+
+/* ── Stats bar (Advith) ────────────────────────────────────────────────── */
+
+.stats-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 8px 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.stat-num {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.stat-lbl {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.stat-lbl.good { color: var(--green); }
+.stat-lbl.bad  { color: var(--accent); }
+
+.stat-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--border);
+}
+
+/* ── Main scroll area ──────────────────────────────────────────────────── */
 
 .app-main {
   padding: 12px 14px 20px;
   overflow-y: auto;
-  height: calc(100vh - 39px);
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-/* ── State views ─────────────────────────────────────────────────────────── */
+/* ── State views ───────────────────────────────────────────────────────── */
 
 .state-view { display: none; }
 
@@ -92,7 +302,7 @@ html, body {
   animation: state-fade-in 0.2s ease;
 }
 
-/* ── Waiting state ───────────────────────────────────────────────────────── */
+/* ── Waiting state (Aditya's idle-hero) ────────────────────────────────── */
 
 .idle-hero {
   display: flex;
@@ -158,7 +368,7 @@ html, body {
   color: var(--muted);
 }
 
-/* ── Content card ────────────────────────────────────────────────────────── */
+/* ── Content card (Aditya) ─────────────────────────────────────────────── */
 
 .content-card {
   background: var(--surface);
@@ -193,7 +403,7 @@ html, body {
 
 .card-url:hover { color: var(--muted); text-decoration: underline; }
 
-/* ── Shimmer loading bar ─────────────────────────────────────────────────── */
+/* ── Shimmer loading bar (Aditya) ──────────────────────────────────────── */
 
 .shimmer-bar {
   height: 2px;
@@ -227,7 +437,7 @@ html, body {
   text-align: center;
 }
 
-/* ── Analysis card ───────────────────────────────────────────────────────── */
+/* ── Analysis card (Aditya) ────────────────────────────────────────────── */
 
 .analysis-card {
   background: var(--surface);
@@ -275,7 +485,7 @@ html, body {
   line-height: 1.55;
 }
 
-/* ── Score bars ──────────────────────────────────────────────────────────── */
+/* ── Score bars (Aditya's grid layout) ─────────────────────────────────── */
 
 .scores-section {
   display: flex;
@@ -336,7 +546,7 @@ html, body {
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Error state ─────────────────────────────────────────────────────────── */
+/* ── Error state (Aditya) ──────────────────────────────────────────────── */
 
 .error-body {
   display: flex;
@@ -374,7 +584,7 @@ html, body {
 
 .btn-retry:hover { opacity: 0.85; }
 
-/* ── History section ─────────────────────────────────────────────────────── */
+/* ── History section (Aditya) ──────────────────────────────────────────── */
 
 .history-section {
   margin-top: 4px;
@@ -445,7 +655,7 @@ html, body {
   flex-shrink: 0;
 }
 
-/* ── Scrollbar ───────────────────────────────────────────────────────────── */
+/* ── Scrollbar ─────────────────────────────────────────────────────────── */
 
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }

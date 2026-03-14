@@ -71,7 +71,6 @@ function fallbackAnalysis(reason = 'Backend unavailable.') {
 async function handleContentDetected(payload) {
   // 1. Persist content immediately.
   await saveCurrentContent(payload).catch(console.error);
-  await appendSessionHistory(payload).catch(console.error);
 
   // 2. Tell the panel to show a loading state.
   sendToPanel({ type: 'ANALYSIS_LOADING', payload });
@@ -84,12 +83,15 @@ async function handleContentDetected(payload) {
     console.warn('[ScrollSense] Backend call failed:', err.message);
     analysis = fallbackAnalysis(err.message);
     await saveCurrentAnalysis(analysis).catch(console.error);
+    await appendSessionHistory({ payload, analysis }).catch(console.error);
+    await saveLastResult({ payload, analysis }).catch(console.error);
     sendToPanel({ type: 'ANALYSIS_ERROR', payload, error: err.message, analysis });
     return;
   }
 
   // 4. Persist and broadcast result.
   await saveCurrentAnalysis(analysis).catch(console.error);
+  await appendSessionHistory({ payload, analysis }).catch(console.error);
   await saveLastResult({ payload, analysis }).catch(console.error);
   sendToPanel({ type: 'ANALYSIS_RESULT', payload, analysis });
 }

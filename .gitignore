@@ -22,3 +22,12 @@ node_modules/
 
 # Logs
 *.log
+
+# Database
+*.db
+
+# R Studio
+.Rhistory
+
+# Batch scripts (local dev only)
+start-server.bat
