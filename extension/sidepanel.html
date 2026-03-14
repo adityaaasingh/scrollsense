@@ -7,108 +7,189 @@
     <link rel="stylesheet" href="sidepanel.css" />
   </head>
   <body>
-    <header class="app-header">
-      <span class="logo">ScrollSense</span>
-      <span id="header-badge" class="header-badge" hidden></span>
-    </header>
 
-    <main class="app-main">
+    <!-- AUTH SCREEN -->
+    <div id="auth-screen" class="auth-screen">
+      <div class="auth-container">
+        <div class="auth-logo">ScrollSense</div>
+        <p class="auth-tagline">Know what you consume.</p>
 
-      <!-- ── Waiting ─────────────────────────────────────────────────────── -->
-      <div id="state-waiting" class="state-view active">
-        <div class="idle-hero">
-          <div class="idle-pulse">
-            <div class="idle-ring"></div>
-            <div class="idle-dot">▶</div>
+        <!-- Login form (default) -->
+        <form id="login-form" class="auth-form">
+          <div class="input-group">
+            <label for="login-email">Email</label>
+            <input type="email" id="login-email" placeholder="you@email.com" required autocomplete="email" />
           </div>
-          <p class="idle-message">Waiting for content</p>
-          <p class="idle-hint">Open a YouTube video and ScrollSense will classify it automatically.</p>
+          <div class="input-group">
+            <label for="login-password">Password</label>
+            <input type="password" id="login-password" placeholder="Password" required autocomplete="current-password" />
+          </div>
+          <p id="login-error" class="auth-error"></p>
+          <button type="submit" class="btn-auth" id="btn-login">Log In</button>
+          <p class="auth-switch">
+            Don't have an account? <a href="#" id="show-register">Sign up</a>
+          </p>
+        </form>
+
+        <!-- Register form (hidden) -->
+        <form id="register-form" class="auth-form hidden">
+          <div class="input-group">
+            <label for="reg-name">Name</label>
+            <input type="text" id="reg-name" placeholder="Your name" required autocomplete="name" />
+          </div>
+          <div class="input-group">
+            <label for="reg-email">Email</label>
+            <input type="email" id="reg-email" placeholder="you@email.com" required autocomplete="email" />
+          </div>
+          <div class="input-group">
+            <label for="reg-password">Password</label>
+            <input type="password" id="reg-password" placeholder="Min. 4 characters" required minlength="4" autocomplete="new-password" />
+          </div>
+          <p id="register-error" class="auth-error"></p>
+          <button type="submit" class="btn-auth" id="btn-register">Create Account</button>
+          <p class="auth-switch">
+            Already have an account? <a href="#" id="show-login">Log in</a>
+          </p>
+        </form>
+      </div>
+    </div>
+
+    <!-- APP SCREEN (hidden until logged in) -->
+    <div id="app-screen" class="app-screen hidden">
+      <header class="app-header">
+        <div class="header-left">
+          <span class="logo">ScrollSense</span>
+          <span id="header-badge" class="header-badge" hidden></span>
+        </div>
+        <div class="header-right">
+          <span id="user-name" class="user-name"></span>
+          <button id="btn-dashboard" class="btn-icon" title="Open analytics dashboard">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><rect x="7" y="10" width="3" height="7"/><rect x="12" y="6" width="3" height="11"/><rect x="17" y="13" width="3" height="4"/></svg>
+          </button>
+          <button id="btn-logout" class="btn-icon" title="Log out">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </button>
+          <button id="btn-clear" class="btn-icon" title="Clear session history">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Session stats bar -->
+      <div id="stats-bar" class="stats-bar">
+        <div class="stat-item">
+          <span class="stat-num" id="stat-total">0</span>
+          <span class="stat-lbl">classified</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-num" id="stat-positive">0</span>
+          <span class="stat-lbl good">positive</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-num" id="stat-negative">0</span>
+          <span class="stat-lbl bad">negative</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-num" id="stat-score">--</span>
+          <span class="stat-lbl">diet score</span>
         </div>
       </div>
 
-      <!-- ── Loading / detected ─────────────────────────────────────────── -->
-      <div id="state-detected" class="state-view">
-        <div class="content-card content-card--loading">
-          <p class="card-title" id="loading-title">—</p>
-          <p class="card-sub"   id="loading-creator">—</p>
-          <p class="card-url"   id="loading-url">—</p>
-        </div>
-        <div class="classifying-row">
-          <div class="shimmer-bar"><div class="shimmer-fill"></div></div>
-          <span class="status-text">Classifying&hellip;</span>
-        </div>
-      </div>
+      <main class="app-main">
 
-      <!-- ── Result ─────────────────────────────────────────────────────── -->
-      <div id="state-result" class="state-view">
-
-        <div class="content-card">
-          <p class="card-title" id="result-title">—</p>
-          <p class="card-sub"   id="result-creator">—</p>
-          <a class="card-url"   id="result-url" href="#" target="_blank" rel="noopener">—</a>
-        </div>
-
-        <div class="analysis-card" id="analysis-card">
-          <!-- Category row -->
-          <div class="analysis-top">
-            <span class="category-badge" id="result-category">—</span>
-            <span class="confidence-pill" id="result-confidence">—</span>
+        <!-- Waiting -->
+        <div id="state-waiting" class="state-view active">
+          <div class="idle-hero">
+            <div class="idle-pulse">
+              <div class="idle-ring"></div>
+              <div class="idle-dot">&#9654;</div>
+            </div>
+            <p class="idle-message">Waiting for content</p>
+            <p class="idle-hint">Open a YouTube video and ScrollSense will classify it automatically.</p>
           </div>
-          <!-- Reason -->
-          <p class="analysis-reason" id="result-reason">—</p>
+        </div>
 
-          <!-- Score bars -->
-          <div class="scores-section">
-            <div class="scores-label">Signal breakdown</div>
-            <div class="scores">
-              <div class="score-row">
-                <span class="score-label">Educational</span>
-                <div class="score-track">
-                  <div class="score-fill score-fill--edu" id="bar-educational"></div>
+        <!-- Loading / detected -->
+        <div id="state-detected" class="state-view">
+          <div class="content-card content-card--loading">
+            <p class="card-title" id="loading-title">&mdash;</p>
+            <p class="card-sub"   id="loading-creator">&mdash;</p>
+            <p class="card-url"   id="loading-url">&mdash;</p>
+          </div>
+          <div class="classifying-row">
+            <div class="shimmer-bar"><div class="shimmer-fill"></div></div>
+            <span class="status-text">Classifying&hellip;</span>
+          </div>
+        </div>
+
+        <!-- Result -->
+        <div id="state-result" class="state-view">
+          <div class="content-card">
+            <p class="card-title" id="result-title">&mdash;</p>
+            <p class="card-sub"   id="result-creator">&mdash;</p>
+            <a class="card-url"   id="result-url" href="#" target="_blank" rel="noopener">&mdash;</a>
+          </div>
+          <div class="analysis-card" id="analysis-card">
+            <div class="analysis-top">
+              <span class="category-badge" id="result-category">&mdash;</span>
+              <span class="confidence-pill" id="result-confidence">&mdash;</span>
+            </div>
+            <p class="analysis-reason" id="result-reason">&mdash;</p>
+            <div class="scores-section">
+              <div class="scores-label">Signal breakdown</div>
+              <div class="scores">
+                <div class="score-row">
+                  <span class="score-label">Educational</span>
+                  <div class="score-track">
+                    <div class="score-fill score-fill--edu" id="bar-educational"></div>
+                  </div>
+                  <span class="score-val" id="val-educational">0%</span>
                 </div>
-                <span class="score-val" id="val-educational">0%</span>
-              </div>
-              <div class="score-row">
-                <span class="score-label">Emotional</span>
-                <div class="score-track">
-                  <div class="score-fill score-fill--emo" id="bar-high_emotion"></div>
+                <div class="score-row">
+                  <span class="score-label">Emotional</span>
+                  <div class="score-track">
+                    <div class="score-fill score-fill--emo" id="bar-high_emotion"></div>
+                  </div>
+                  <span class="score-val" id="val-high_emotion">0%</span>
                 </div>
-                <span class="score-val" id="val-high_emotion">0%</span>
-              </div>
-              <div class="score-row">
-                <span class="score-label">Credib. Risk</span>
-                <div class="score-track">
-                  <div class="score-fill score-fill--risk" id="bar-credibility_risk"></div>
+                <div class="score-row">
+                  <span class="score-label">Credib. Risk</span>
+                  <div class="score-track">
+                    <div class="score-fill score-fill--risk" id="bar-credibility_risk"></div>
+                  </div>
+                  <span class="score-val" id="val-credibility_risk">0%</span>
                 </div>
-                <span class="score-val" id="val-credibility_risk">0%</span>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- ── Error ──────────────────────────────────────────────────────── -->
-      <div id="state-error" class="state-view">
-        <div class="content-card" id="error-content-card" hidden>
-          <p class="card-title" id="error-title">—</p>
-          <p class="card-sub"   id="error-creator">—</p>
+        <!-- Error -->
+        <div id="state-error" class="state-view">
+          <div class="content-card" id="error-content-card" hidden>
+            <p class="card-title" id="error-title">&mdash;</p>
+            <p class="card-sub"   id="error-creator">&mdash;</p>
+          </div>
+          <div class="error-body">
+            <p class="error-icon">&#9888;</p>
+            <p class="error-message" id="error-message">Classification failed.</p>
+            <button id="btn-retry" class="btn-retry">Try again</button>
+          </div>
         </div>
-        <div class="error-body">
-          <p class="error-icon">⚠</p>
-          <p class="error-message" id="error-message">Classification failed.</p>
-          <button id="btn-retry" class="btn-retry">Try again</button>
-        </div>
-      </div>
 
-      <!-- ── Session history ────────────────────────────────────────────── -->
-      <section class="history-section" id="history-section" hidden>
-        <div class="section-header">
-          <span class="section-title">Recent</span>
-        </div>
-        <div class="history-list" id="history-list"></div>
-      </section>
+        <!-- Session history -->
+        <section class="history-section" id="history-section" hidden>
+          <div class="section-header">
+            <span class="section-title">Recent</span>
+          </div>
+          <div class="history-list" id="history-list"></div>
+        </section>
 
-    </main>
+      </main>
+    </div>
 
     <script src="sidepanel.js" type="module"></script>
   </body>

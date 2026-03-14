@@ -39,20 +39,27 @@ export async function getCurrentAnalysis() {
 // ─── Session history ──────────────────────────────────────────────────────────
 
 /**
- * Prepend a payload to session history.
- * Deduplicates by URL: if the URL already exists in history it is moved to the
- * front rather than duplicated. Trims to SESSION_HISTORY_LIMIT.
- * @param {object} payload — normalized ScrollSense payload
+ * Prepend a classified session result to history.
+ * Deduplicates by URL so revisiting the same content refreshes the latest entry.
+ * Trims to SESSION_HISTORY_LIMIT.
+ * @param {{ payload: object, analysis: object }} entry
  */
-export async function appendSessionHistory(payload) {
+export async function appendSessionHistory(entry) {
   const s = await chrome.storage.local.get(KEYS.SESSION_HISTORY);
   let history = s[KEYS.SESSION_HISTORY] ?? [];
+  const url = entry?.payload?.url;
+
+  if (!url) return history;
 
   // Remove any existing entry for the same URL so we don't get duplicates.
-  history = history.filter((item) => item.url !== payload.url);
+  history = history.filter((item) => item?.payload?.url !== url);
 
   // Newest first.
-  history.unshift(payload);
+  history.unshift({
+    payload: entry.payload,
+    analysis: entry.analysis,
+    saved_at: new Date().toISOString(),
+  });
 
   // Keep bounded.
   if (history.length > SESSION_HISTORY_LIMIT) {
