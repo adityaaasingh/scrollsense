@@ -170,21 +170,33 @@ class RulesResult:
 
 def check_rules(payload: ContentPayload) -> Optional[RulesResult]:
     """
-    Return a RulesResult if any rule fires, else None.
-    high_confidence=True means the rule is definitive enough to bypass Gemini.
-    high_confidence=False means the rule produced a useful prior; Gemini may refine it.
+    Dispatch to the platform-specific rule function.
+    Each platform function returns a RulesResult or None.
+
+    TO ADD A PLATFORM:
+      1. Implement _rules_<platform>() below using _rules_youtube() as a template.
+      2. Add an elif branch here.
+      3. Add a branch in classifier.py _build_prompt() if the platform needs
+         a custom prompt structure (optional — the generic prompt works for all).
     """
     title   = payload.title or ""
     creator = payload.creator or ""
     text    = f"{title} {payload.visible_text or ''}"
 
     sig = _score_text(text)
+    args = (payload, title, creator, text, sig)
 
     if payload.platform == "youtube":
-        return _rules_youtube(payload, title, creator, text, sig)
+        return _rules_youtube(*args)
+    if payload.platform == "reddit":
+        return _rules_reddit(*args)
+    if payload.platform == "x":
+        return _rules_x(*args)
+    if payload.platform == "news":
+        return _rules_news(*args)
 
-    # Generic fallback for future platforms
-    return _rules_generic(payload, title, creator, text, sig)
+    # Unknown future platform — fall through to generic keyword signals.
+    return _rules_generic(*args)
 
 
 def _rules_youtube(payload, title, creator, text, sig) -> Optional[RulesResult]:
@@ -336,6 +348,82 @@ def _entertainment_reason(title: str, match_count: int) -> str:
     if match_count >= 2:
         return "Title contains multiple entertainment format indicators."
     return "Title matches a recognised entertainment content format."
+
+
+def _rules_reddit(payload, title, creator, text, sig) -> Optional[RulesResult]:
+    """
+    Reddit-specific classification rules.
+
+    TODO: Implement when Reddit support is added.
+    Signals to consider:
+      - Subreddit (extractable from URL: /r/<subreddit>/) → strong category signal
+        e.g. r/science → Educational, r/worldnews → Credible News, r/AskReddit → Opinion
+      - Post flair (often explicit category label)
+      - Vote/comment ratio as a rough engagement/emotion proxy
+      - NSFW flag → could indicate High-Emotion content
+
+    For now, falls through to generic keyword scoring.
+    """
+    return _rules_generic(payload, title, creator, text, sig)
+
+
+def _rules_x(payload, title, creator, text, sig) -> Optional[RulesResult]:
+    """
+    X (Twitter) specific classification rules.
+
+    TODO: Implement when X support is added.
+    Signals to consider:
+      - Verified account badge → boosts Credible News confidence
+      - Quote-tweet / reply structure → Opinion / Commentary
+      - Thread (multiple connected posts) → may be Educational or Opinion
+      - Hashtag density → high count correlates with High-Emotion / viral content
+      - Short text with no links → likely Opinion
+
+    For now, falls through to generic keyword scoring.
+    """
+    return _rules_generic(payload, title, creator, text, sig)
+
+
+def _rules_news(payload, title, creator, text, sig) -> Optional[RulesResult]:
+    """
+    News article specific classification rules.
+
+    TODO: Implement when news-site support is added.
+    Signals to consider:
+      - Known publisher domain (already partially handled in _TRUSTED_NEWS_CREATORS
+        via creator field — reuse or extend that list here)
+      - Article section/category from URL path (e.g. /opinion/, /technology/, /sport/)
+      - Byline presence → boosts Credible News
+      - Opinion section URL → Opinion / Commentary with high confidence
+
+    For now, defaults to Credible News with moderate confidence if the trusted-
+    creator check passes, otherwise falls to generic scoring.
+    """
+    # Trusted news creators are publication-level; applies directly to news articles.
+    if _TRUSTED_NEWS_CREATORS.search(creator) or _TRUSTED_NEWS_CREATORS.search(payload.url or ""):
+        return RulesResult(
+            response=AnalysisResponse(
+                category=CAT_CREDIBLE_NEWS,
+                confidence=0.78,
+                reason="Article is from a recognised news organisation.",
+                scores=Scores(educational=0.40, high_emotion=0.05, credibility_risk=0.08),
+            ),
+            high_confidence=True,
+        )
+
+    # Opinion URL signal — many publishers use /opinion/ or /comment/ in the path.
+    if re.search(r"/opinion[s]?/|/commentary/|/editorial/|/columns?/", payload.url or ""):
+        return RulesResult(
+            response=AnalysisResponse(
+                category=CAT_OPINION,
+                confidence=0.72,
+                reason="Article URL path indicates an opinion or editorial section.",
+                scores=Scores(educational=0.15, high_emotion=0.15, credibility_risk=0.25),
+            ),
+            high_confidence=False,
+        )
+
+    return _rules_generic(payload, title, creator, text, sig)
 
 
 def _rules_generic(payload, title, creator, text, sig) -> Optional[RulesResult]:

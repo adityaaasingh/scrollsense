@@ -12,15 +12,29 @@
   // ─── Extractor registry ──────────────────────────────────────────────────
   // Each entry: { test: (hostname) => bool, extract: () => payload | null }
   // Listed in priority order; first match wins.
+  //
+  // TO ADD A PLATFORM:
+  //   1. Implement utils/extractors/<platform>.js (use reddit.js / x.js / news.js as templates).
+  //   2. Inline the extractor function into this IIFE (content scripts can't import modules).
+  //   3. Add an entry below — the coordinator and background.js require no other changes.
+  //   4. Update manifest.json: add host_permissions + content_scripts.matches for the new domain.
 
   const EXTRACTORS = [
     {
       test: (h) => h.includes('youtube.com'),
-      extract: extractYouTube,          // defined below (inlined from youtube.js)
+      extract: extractYouTube,    // ← inlined below from utils/extractors/youtube.js
     },
-    // Future:
-    // { test: (h) => h.includes('reddit.com'), extract: extractReddit },
-    // { test: (h) => h.includes('twitter.com') || h.includes('x.com'), extract: extractX },
+
+    // ── Plug future platforms in here ──────────────────────────────────────
+    // { test: (h) => h.includes('reddit.com'),
+    //   extract: extractReddit },  // ← inline utils/extractors/reddit.js
+
+    // { test: (h) => h.includes('x.com') || h.includes('twitter.com'),
+    //   extract: extractX },       // ← inline utils/extractors/x.js
+
+    // { test: (h) => NEWS_DOMAINS.some((d) => h.includes(d)),
+    //   extract: extractNews },    // ← inline utils/extractors/news.js
+    //   (NEWS_DOMAINS exported from news.js — inline that array here too)
   ];
 
   // ─── YouTube extractor (inlined) ─────────────────────────────────────────

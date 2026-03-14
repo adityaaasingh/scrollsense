@@ -9,56 +9,105 @@
   <body>
     <header class="app-header">
       <span class="logo">ScrollSense</span>
+      <span id="header-badge" class="header-badge" hidden></span>
     </header>
 
     <main class="app-main">
-      <!-- Idle / waiting state -->
+
+      <!-- ── Waiting ─────────────────────────────────────────────────────── -->
       <div id="state-waiting" class="state-view active">
-        <div class="idle-icon">&#9654;</div>
-        <p class="idle-message">Waiting for YouTube video&hellip;</p>
-        <p class="idle-hint">Navigate to a YouTube watch page to get started.</p>
+        <div class="idle-hero">
+          <div class="idle-pulse">
+            <div class="idle-ring"></div>
+            <div class="idle-dot">▶</div>
+          </div>
+          <p class="idle-message">Waiting for content</p>
+          <p class="idle-hint">Open a YouTube video and ScrollSense will classify it automatically.</p>
+        </div>
       </div>
 
-      <!-- Video detected — pending classification -->
+      <!-- ── Loading / detected ─────────────────────────────────────────── -->
       <div id="state-detected" class="state-view">
-        <div class="video-meta">
-          <p class="label">Title</p>
-          <p id="meta-title" class="value">—</p>
-          <p class="label">Channel</p>
-          <p id="meta-channel" class="value">—</p>
-          <p class="label">URL</p>
-          <p id="meta-url" class="value url-value">—</p>
+        <div class="content-card content-card--loading">
+          <p class="card-title" id="loading-title">—</p>
+          <p class="card-sub"   id="loading-creator">—</p>
+          <p class="card-url"   id="loading-url">—</p>
         </div>
-        <div class="loading-bar">
-          <div class="loading-bar-inner"></div>
+        <div class="classifying-row">
+          <div class="shimmer-bar"><div class="shimmer-fill"></div></div>
+          <span class="status-text">Classifying&hellip;</span>
         </div>
-        <p class="status-text">Classifying&hellip;</p>
       </div>
 
-      <!-- Classification result -->
+      <!-- ── Result ─────────────────────────────────────────────────────── -->
       <div id="state-result" class="state-view">
-        <div class="video-meta">
-          <p class="label">Title</p>
-          <p id="result-title" class="value">—</p>
-          <p class="label">Channel</p>
-          <p id="result-channel" class="value">—</p>
+
+        <div class="content-card">
+          <p class="card-title" id="result-title">—</p>
+          <p class="card-sub"   id="result-creator">—</p>
+          <a class="card-url"   id="result-url" href="#" target="_blank" rel="noopener">—</a>
         </div>
-        <div class="result-card">
-          <p class="label">Classification</p>
-          <p id="result-label" class="result-label">—</p>
-          <p class="label">Confidence</p>
-          <p id="result-confidence" class="result-confidence">—</p>
-          <p class="label">Summary</p>
-          <p id="result-summary" class="result-summary">—</p>
+
+        <div class="analysis-card" id="analysis-card">
+          <!-- Category row -->
+          <div class="analysis-top">
+            <span class="category-badge" id="result-category">—</span>
+            <span class="confidence-pill" id="result-confidence">—</span>
+          </div>
+          <!-- Reason -->
+          <p class="analysis-reason" id="result-reason">—</p>
+
+          <!-- Score bars -->
+          <div class="scores-section">
+            <div class="scores-label">Signal breakdown</div>
+            <div class="scores">
+              <div class="score-row">
+                <span class="score-label">Educational</span>
+                <div class="score-track">
+                  <div class="score-fill score-fill--edu" id="bar-educational"></div>
+                </div>
+                <span class="score-val" id="val-educational">0%</span>
+              </div>
+              <div class="score-row">
+                <span class="score-label">Emotional</span>
+                <div class="score-track">
+                  <div class="score-fill score-fill--emo" id="bar-high_emotion"></div>
+                </div>
+                <span class="score-val" id="val-high_emotion">0%</span>
+              </div>
+              <div class="score-row">
+                <span class="score-label">Credib. Risk</span>
+                <div class="score-track">
+                  <div class="score-fill score-fill--risk" id="bar-credibility_risk"></div>
+                </div>
+                <span class="score-val" id="val-credibility_risk">0%</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- Error state -->
+      <!-- ── Error ──────────────────────────────────────────────────────── -->
       <div id="state-error" class="state-view">
-        <p class="error-icon">&#9888;</p>
-        <p id="error-message" class="error-message">Something went wrong.</p>
-        <button id="btn-retry" class="btn-retry">Retry</button>
+        <div class="content-card" id="error-content-card" hidden>
+          <p class="card-title" id="error-title">—</p>
+          <p class="card-sub"   id="error-creator">—</p>
+        </div>
+        <div class="error-body">
+          <p class="error-icon">⚠</p>
+          <p class="error-message" id="error-message">Classification failed.</p>
+          <button id="btn-retry" class="btn-retry">Try again</button>
+        </div>
       </div>
+
+      <!-- ── Session history ────────────────────────────────────────────── -->
+      <section class="history-section" id="history-section" hidden>
+        <div class="section-header">
+          <span class="section-title">Recent</span>
+        </div>
+        <div class="history-list" id="history-list"></div>
+      </section>
+
     </main>
 
     <script src="sidepanel.js" type="module"></script>
