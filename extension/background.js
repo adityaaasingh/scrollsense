@@ -5,6 +5,7 @@
 //   3. Notify panel: ANALYSIS_LOADING
 //   4. POST payload to /analyze/live
 //   5a. Success → persist analysis, notify panel: ANALYSIS_RESULT
+//         → patch category into history, trigger session analysis (fire-and-forget)
 //   5b. Failure → persist fallback, notify panel: ANALYSIS_ERROR
 
 import { sendToPanel } from './utils/messaging.js';
@@ -12,9 +13,12 @@ import {
   saveCurrentContent,
   saveCurrentAnalysis,
   appendSessionHistory,
+  setHistoryItemCategory,
+  getSessionHistory,
   saveLastResult,
+  saveSessionInsights,
 } from './utils/storage.js';
-import { analyzeContent } from './utils/api.js';
+import { analyzeContent, analyzeSession } from './utils/api.js';
 
 // ─── Side panel lifecycle ─────────────────────────────────────────────────────
 
@@ -28,7 +32,7 @@ chrome.tabs.onActivated.addListener(({ tabId }) => {
 
 // ─── Dedup ────────────────────────────────────────────────────────────────────
 
-const lastSeen = new Map();          // tabId → { url, title, ts }
+const lastSeen = new Map();          // tabId → { url, title, creator, ts }
 const DEDUP_WINDOW_MS = 5000;
 
 function isDuplicate(tabId, payload) {
@@ -66,6 +70,34 @@ function fallbackAnalysis(reason = 'Backend unavailable.') {
   };
 }
 
+// ─── Session analysis ─────────────────────────────────────────────────────────
+// Triggered after each successful individual classification.
+// Fully fire-and-forget — any failure here must never affect the main flow.
+
+const MIN_CLASSIFIED_FOR_SESSION = 3;   // need at least this many labelled items
+
+async function triggerSessionAnalysis() {
+  const history = await getSessionHistory();
+
+  // Only send items that have a category assigned by setHistoryItemCategory.
+  const classified = history.filter((item) => item._category);
+  if (classified.length < MIN_CLASSIFIED_FOR_SESSION) return;
+
+  // Cap at 20 most recent — enough for reliable pattern detection.
+  const items = classified.slice(0, 20).map((item) => ({
+    url:         item.url,
+    title:       item.title       ?? null,
+    creator:     item.creator     ?? null,
+    platform:    item.platform    ?? null,
+    category:    item._category   ?? null,
+    captured_at: item.captured_at ?? null,
+  }));
+
+  const insights = await analyzeSession(items);
+  await saveSessionInsights(insights);
+  // Panel picks up the new value via chrome.storage.onChanged — no extra message needed.
+}
+
 // ─── Core pipeline ────────────────────────────────────────────────────────────
 
 async function handleContentDetected(payload) {
@@ -88,10 +120,17 @@ async function handleContentDetected(payload) {
     return;
   }
 
-  // 4. Persist and broadcast result.
+  // 4. Persist and broadcast the classification result.
   await saveCurrentAnalysis(analysis).catch(console.error);
   await saveLastResult({ payload, analysis }).catch(console.error);
   sendToPanel({ type: 'ANALYSIS_RESULT', payload, analysis });
+
+  // 5. Enrich history with the category, then run session analysis.
+  //    Chained as promises so session analysis always runs after the patch.
+  //    Errors are silently logged — must never break the panel.
+  setHistoryItemCategory(payload.url, analysis.category)
+    .then(() => triggerSessionAnalysis())
+    .catch((err) => console.warn('[ScrollSense] Session analysis failed:', err.message));
 }
 
 // ─── Message listener ─────────────────────────────────────────────────────────

@@ -7,12 +7,14 @@ import {
   getCurrentContent,
   getCurrentAnalysis,
   getSessionHistory,
+  getSessionInsights,
   saveLastResult,
 } from './utils/storage.js';
 
 // ── Storage keys (must match storage.js) ─────────────────────────────────────
-const KEY_ANALYSIS = 'scrollsense_current_analysis';
-const KEY_HISTORY  = 'scrollsense_session_history';
+const KEY_ANALYSIS  = 'scrollsense_current_analysis';
+const KEY_HISTORY   = 'scrollsense_session_history';
+const KEY_INSIGHTS  = 'scrollsense_session_insights';
 
 // ── Category → accent colour & emoji ─────────────────────────────────────────
 const CATEGORY_COLORS = {
@@ -56,6 +58,41 @@ function truncateUrl(url) {
   }
 }
 
+// ── Session label → colour & emoji ───────────────────────────────────────────
+const SESSION_LABEL_COLORS = {
+  'Learning Mode':       '#4ade80',
+  'Entertainment Loop':  '#60a5fa',
+  'Creator Binge':       '#a78bfa',
+  'Commentary Cluster':  '#fbbf24',
+  'Sports Spiral':       '#34d399',
+  'News Spiral':         '#2dd4bf',
+  'Balanced Feed':       '#6ee7b7',
+  'Rage Feed':           '#f87171',
+  'Mixed Session':       '#9ca3af',
+};
+
+const SESSION_LABEL_EMOJI = {
+  'Learning Mode':       '🎓',
+  'Entertainment Loop':  '🔄',
+  'Creator Binge':       '👤',
+  'Commentary Cluster':  '💬',
+  'Sports Spiral':       '⚽',
+  'News Spiral':         '📰',
+  'Balanced Feed':       '⚖️',
+  'Rage Feed':           '⚡',
+  'Mixed Session':       '🌀',
+};
+
+function sessionLabelColor(label) {
+  return SESSION_LABEL_COLORS[label] ?? '#9ca3af';
+}
+
+function sessionLabelText(label) {
+  if (!label) return '—';
+  const emoji = SESSION_LABEL_EMOJI[label];
+  return emoji ? `${emoji} ${label}` : label;
+}
+
 // ── Platform label ────────────────────────────────────────────────────────────
 function platformLabel(platform) {
   return { youtube: 'YouTube', reddit: 'Reddit', x: 'X', news: 'News' }[platform] ?? platform ?? '';
@@ -82,6 +119,14 @@ function setBar(scoreKey, value) {
   const val = document.getElementById(`val-${scoreKey}`);
   if (bar) bar.style.width = `${pct}%`;
   if (val) val.textContent = `${pct}%`;
+}
+
+function _esc(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 // ── Render functions ──────────────────────────────────────────────────────────
@@ -157,6 +202,55 @@ function renderError(payload, message) {
   showState('error');
 }
 
+// ── Session insights ──────────────────────────────────────────────────────────
+
+function renderSessionInsights(insights) {
+  const section = document.getElementById('session-section');
+  if (!section) return;
+
+  if (!insights || !insights.label) {
+    section.hidden = true;
+    return;
+  }
+
+  section.hidden = false;
+
+  // Label badge with dynamic colour
+  const labelEl = document.getElementById('session-label');
+  if (labelEl) {
+    labelEl.textContent = sessionLabelText(insights.label);
+    const color = sessionLabelColor(insights.label);
+    labelEl.style.setProperty('--session-color', color);
+  }
+
+  // Diversity pill: show diversity % from metrics if available
+  const divEl = document.getElementById('session-diversity');
+  if (divEl) {
+    const div = insights.metrics?.diversity_score;
+    divEl.textContent = div != null ? `${Math.round(div * 100)}% diverse` : '';
+    divEl.hidden = div == null;
+  }
+
+  // Summary
+  setText('session-summary', insights.summary);
+
+  // Insights list (3 bullets)
+  const insightsList = document.getElementById('session-insights');
+  if (insightsList) {
+    insightsList.innerHTML = (insights.insights ?? [])
+      .map((text) => `<li class="session-insight">${_esc(text)}</li>`)
+      .join('');
+  }
+
+  // Recommendations
+  const recsEl = document.getElementById('session-recs');
+  if (recsEl) {
+    recsEl.innerHTML = (insights.recommendations ?? [])
+      .map((text) => `<p class="session-rec">${_esc(text)}</p>`)
+      .join('');
+  }
+}
+
 // ── History ───────────────────────────────────────────────────────────────────
 
 function renderHistory(items) {
@@ -175,8 +269,6 @@ function renderHistory(items) {
   list.innerHTML = '';
 
   recent.forEach((item) => {
-    // Each history entry is a content payload (not an analysis).
-    // The category may be embedded if we stored it; fall back gracefully.
     const cat   = item._category ?? null;
     const color = cat ? categoryColor(cat) : '#9ca3af';
 
@@ -191,14 +283,6 @@ function renderHistory(items) {
     `;
     list.appendChild(row);
   });
-}
-
-function _esc(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 // ── Message handling ──────────────────────────────────────────────────────────
@@ -236,6 +320,10 @@ chrome.storage.onChanged.addListener((changes, area) => {
     renderHistory(changes[KEY_HISTORY].newValue ?? []);
   }
 
+  if (changes[KEY_INSIGHTS]) {
+    renderSessionInsights(changes[KEY_INSIGHTS].newValue ?? null);
+  }
+
   // If the panel is in loading state and analysis arrives via storage
   // (race between broadcast and panel opening), update the result view.
   if (changes[KEY_ANALYSIS] && currentPayload) {
@@ -260,13 +348,15 @@ document.getElementById('btn-retry')?.addEventListener('click', () => {
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 
 async function init() {
-  const [content, analysis, history] = await Promise.all([
+  const [content, analysis, history, insights] = await Promise.all([
     getCurrentContent(),
     getCurrentAnalysis(),
     getSessionHistory(),
+    getSessionInsights(),
   ]);
 
   renderHistory(history);
+  renderSessionInsights(insights);   // no-op if null — section stays hidden
 
   if (content && analysis && !analysis._fallback) {
     currentPayload = content;

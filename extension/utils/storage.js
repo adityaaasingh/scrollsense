@@ -6,7 +6,10 @@ const KEYS = {
   CURRENT_ANALYSIS:   'scrollsense_current_analysis',  // latest classification result
   SESSION_HISTORY:    'scrollsense_session_history',
   LAST_RESULT:        'scrollsense_last_result',        // alias kept for panel restore
+  SESSION_INSIGHTS:   'scrollsense_session_insights',  // latest /analyze/session result
 };
+
+export const KEY_NAMES = KEYS;   // expose for onChanged listeners in the panel
 
 const SESSION_HISTORY_LIMIT = 50;
 
@@ -62,6 +65,20 @@ export async function appendSessionHistory(payload) {
   return chrome.storage.local.set({ [KEYS.SESSION_HISTORY]: history });
 }
 
+/**
+ * Patch the _category field on an existing history item (matched by URL).
+ * Called after classification so the session analyzer has category data.
+ * No-op if the URL is not in history.
+ */
+export async function setHistoryItemCategory(url, category) {
+  const s = await chrome.storage.local.get(KEYS.SESSION_HISTORY);
+  const history = s[KEYS.SESSION_HISTORY] ?? [];
+  const updated = history.map((item) =>
+    item.url === url ? { ...item, _category: category } : item
+  );
+  return chrome.storage.local.set({ [KEYS.SESSION_HISTORY]: updated });
+}
+
 /** Read the full session history array. */
 export async function getSessionHistory() {
   const s = await chrome.storage.local.get(KEYS.SESSION_HISTORY);
@@ -87,4 +104,17 @@ export async function getLastResult() {
 
 export function clearLastResult() {
   return chrome.storage.local.remove(KEYS.LAST_RESULT);
+}
+
+// ─── Session insights ─────────────────────────────────────────────────────────
+
+/** Persist the latest /analyze/session result from the backend. */
+export function saveSessionInsights(insights) {
+  return chrome.storage.local.set({ [KEYS.SESSION_INSIGHTS]: insights });
+}
+
+/** Read the latest session insight result. */
+export async function getSessionInsights() {
+  const s = await chrome.storage.local.get(KEYS.SESSION_INSIGHTS);
+  return s[KEYS.SESSION_INSIGHTS] ?? null;
 }
