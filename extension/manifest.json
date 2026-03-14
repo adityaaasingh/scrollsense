@@ -42,5 +42,12 @@
 
   "action": {
     "default_title": "Open ScrollSense"
-  }
+  },
+
+  "web_accessible_resources": [
+    {
+      "resources": ["dashboard.html", "dashboard-assets/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }

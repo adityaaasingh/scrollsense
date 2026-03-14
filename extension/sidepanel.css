@@ -45,6 +45,23 @@ html, body {
   z-index: 10;
 }
 
+.btn-dashboard {
+  margin-left: auto;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 3px 7px;
+  line-height: 1;
+  transition: border-color 0.15s, color 0.15s;
+}
+.btn-dashboard:hover {
+  border-color: var(--text);
+  color: var(--text);
+}
+
 .logo {
   font-size: 14px;
   font-weight: 700;

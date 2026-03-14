@@ -33,3 +33,27 @@ class HistoryItem(BaseModel):
 class SessionInsightRequest(BaseModel):
     """Request body for POST /analyze/session."""
     items: list[HistoryItem] = Field(..., min_length=1, max_length=50)
+
+
+class DashboardScores(BaseModel):
+    """Score breakdown for a single all-time log item."""
+    educational: float = 0.0
+    high_emotion: float = 0.0
+    credibility_risk: float = 0.0
+
+
+class AllTimeItem(BaseModel):
+    """A single entry from the all-time classified log stored by the extension."""
+    platform: Optional[str] = None
+    content_type: Optional[str] = None
+    url: str
+    title: Optional[str] = None
+    creator: Optional[str] = None
+    category: Optional[str] = None
+    scores: Optional[DashboardScores] = None
+    captured_at: Optional[str] = None  # ISO-8601
+
+
+class DashboardRequest(BaseModel):
+    """Request body for POST /analyze/dashboard."""
+    items: list[AllTimeItem]

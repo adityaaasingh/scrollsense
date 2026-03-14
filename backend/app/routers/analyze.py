@@ -1,8 +1,9 @@
 from fastapi import APIRouter
-from app.schemas.request import ContentPayload, SessionInsightRequest
-from app.schemas.response import AnalysisResponse, SessionInsightResponse
+from app.schemas.request import ContentPayload, SessionInsightRequest, DashboardRequest
+from app.schemas.response import AnalysisResponse, SessionInsightResponse, DashboardResponse
 from app.services.classifier import classify
 from app.services.session_analyzer import analyze_session
+from app.services.dashboard_analyzer import analyze_dashboard
 
 router = APIRouter(prefix="/analyze", tags=["analyze"])
 
@@ -26,3 +27,14 @@ async def analyze_session_endpoint(request: SessionInsightRequest) -> SessionIns
     The existing /live classification flow is not affected.
     """
     return await analyze_session(request.items)
+
+
+@router.post("/dashboard", response_model=DashboardResponse)
+async def analyze_dashboard_endpoint(request: DashboardRequest) -> DashboardResponse:
+    """
+    Analyze the full all-time log and return time-block statements for the dashboard.
+
+    Groups items by time of day (Morning/Afternoon/Evening/Late Night), computes
+    emotional intensity per block, and generates plain-English summary statements.
+    """
+    return await analyze_dashboard(request.items)

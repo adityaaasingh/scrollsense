@@ -17,6 +17,7 @@ import {
   getSessionHistory,
   saveLastResult,
   saveSessionInsights,
+  appendAllTimeLog,
 } from './utils/storage.js';
 import { analyzeContent, analyzeSession } from './utils/api.js';
 
@@ -125,7 +126,19 @@ async function handleContentDetected(payload) {
   await saveLastResult({ payload, analysis }).catch(console.error);
   sendToPanel({ type: 'ANALYSIS_RESULT', payload, analysis });
 
-  // 5. Enrich history with the category, then run session analysis.
+  // 5a. Append to all-time log (fire-and-forget — never affects panel).
+  appendAllTimeLog({
+    platform:     payload.platform,
+    content_type: payload.content_type,
+    url:          payload.url,
+    title:        payload.title        ?? null,
+    creator:      payload.creator      ?? null,
+    category:     analysis.category,
+    scores:       analysis.scores,
+    captured_at:  payload.captured_at,
+  }).catch((err) => console.warn('[ScrollSense] appendAllTimeLog failed:', err.message));
+
+  // 5b. Enrich history with the category, then run session analysis.
   //    Chained as promises so session analysis always runs after the patch.
   //    Errors are silently logged — must never break the panel.
   setHistoryItemCategory(payload.url, analysis.category)

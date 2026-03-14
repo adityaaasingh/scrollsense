@@ -336,6 +336,10 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
 // ── Retry ─────────────────────────────────────────────────────────────────────
 
+document.getElementById('btn-dashboard')?.addEventListener('click', () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL('dashboard.html') });
+});
+
 document.getElementById('btn-retry')?.addEventListener('click', () => {
   if (currentPayload) {
     renderLoading(currentPayload);

@@ -40,3 +40,19 @@ class SessionInsightResponse(BaseModel):
     insights: list[str]         # exactly 3 short descriptive bullets
     recommendations: list[str]  # 1–3 action-oriented strings
     summary: str                # 1–2 sentence narrative (Gemini or canned fallback)
+
+
+class TimeBlockStatement(BaseModel):
+    """Insight for a single time-of-day block (Morning / Afternoon / Evening / Late Night)."""
+    block: str             # "Morning" | "Afternoon" | "Evening" | "Late Night"
+    hours: str             # human-readable range, e.g. "6am–12pm"
+    dominant_category: str
+    emotional_score: float = Field(..., ge=0.0, le=1.0)
+    statement: str         # plain-English summary sentence
+    traffic_light: str     # "green" | "amber" | "red"
+
+
+class DashboardResponse(BaseModel):
+    """Returned by POST /analyze/dashboard."""
+    time_blocks: list[TimeBlockStatement]
+    overall_statement: str  # 1-sentence arc for the full history

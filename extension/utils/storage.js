@@ -7,6 +7,7 @@ const KEYS = {
   SESSION_HISTORY:    'scrollsense_session_history',
   LAST_RESULT:        'scrollsense_last_result',        // alias kept for panel restore
   SESSION_INSIGHTS:   'scrollsense_session_insights',  // latest /analyze/session result
+  ALL_TIME_LOG:       'scrollsense_all_time_log',       // all-time classified items, no limit
 };
 
 export const KEY_NAMES = KEYS;   // expose for onChanged listeners in the panel
@@ -104,6 +105,25 @@ export async function getLastResult() {
 
 export function clearLastResult() {
   return chrome.storage.local.remove(KEYS.LAST_RESULT);
+}
+
+// ─── All-time log ─────────────────────────────────────────────────────────────
+
+/**
+ * Append one fully-classified item to the all-time log. No dedup, no limit.
+ * Item schema: { platform, content_type, url, title, creator, category, scores, captured_at }
+ */
+export async function appendAllTimeLog(item) {
+  const s = await chrome.storage.local.get(KEYS.ALL_TIME_LOG);
+  const log = s[KEYS.ALL_TIME_LOG] ?? [];
+  log.push(item);
+  return chrome.storage.local.set({ [KEYS.ALL_TIME_LOG]: log });
+}
+
+/** Read the full all-time log array. */
+export async function getAllTimeLog() {
+  const s = await chrome.storage.local.get(KEYS.ALL_TIME_LOG);
+  return s[KEYS.ALL_TIME_LOG] ?? [];
 }
 
 // ─── Session insights ─────────────────────────────────────────────────────────
